@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'create_post_bottom_sheet.dart';
+import '../create_post_screen.dart';
 import '../home_screen.dart';
 
 class CreatePostCard extends StatelessWidget {
@@ -12,7 +13,7 @@ class CreatePostCard extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CreatePostBottomSheet(avatarUrl: avatarUrl),
+      builder: (context) => CreatePostScreen(avatarUrl: avatarUrl),
     );
 
     if (result == true && context.mounted) {

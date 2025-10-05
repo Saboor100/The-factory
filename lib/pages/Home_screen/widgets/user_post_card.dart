@@ -33,6 +33,10 @@ class _UserPostCardState extends State<UserPostCard>
   late Animation<double> _likeScaleAnimation;
   bool _isProcessing = false;
 
+  // For multi-image support
+  int _currentImageIndex = 0;
+  final PageController _pageController = PageController();
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +59,28 @@ class _UserPostCardState extends State<UserPostCard>
   @override
   void dispose() {
     _likeAnimationController.dispose();
+    _pageController.dispose();
     super.dispose();
+  }
+
+  List<Map<String, dynamic>> _getImages() {
+    // Check for multiple images first
+    if (widget.data['images'] != null && widget.data['images'] is List) {
+      final imagesList = widget.data['images'] as List;
+      if (imagesList.isNotEmpty) {
+        return List<Map<String, dynamic>>.from(imagesList);
+      }
+    }
+    // Fallback to single image for backward compatibility
+    if (widget.data['imageUrl'] != null) {
+      return [
+        {
+          'url': widget.data['imageUrl'],
+          'cloudinaryId': widget.data['cloudinaryImageId'],
+        },
+      ];
+    }
+    return [];
   }
 
   Future<void> _handleLike() async {
@@ -228,10 +253,10 @@ class _UserPostCardState extends State<UserPostCard>
     final avatar = profile?['avatar'] as Map<String, dynamic>?;
     final avatarUrl = avatar?['url'] ?? '';
     final username = profile?['fullName'] ?? user?['name'] ?? 'Unknown User';
-    final imageUrl = widget.data['imageUrl'] ?? '';
     final caption = widget.data['caption'] ?? '';
     final createdAt = widget.data['createdAt'] ?? '';
     final isMyPost = _isCurrentUserPost(context);
+    final images = _getImages();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -251,7 +276,7 @@ class _UserPostCardState extends State<UserPostCard>
         children: [
           _buildHeader(username, avatarUrl, createdAt, isMyPost),
           if (caption.isNotEmpty) _buildCaption(caption),
-          if (imageUrl.isNotEmpty) _buildImage(imageUrl),
+          if (images.isNotEmpty) _buildImagesSection(images),
           _buildActionBar(),
           if (likesCount > 0) _buildLikesPreview(),
         ],
@@ -403,51 +428,128 @@ class _UserPostCardState extends State<UserPostCard>
     );
   }
 
-  Widget _buildImage(String imageUrl) {
+  Widget _buildImagesSection(List<Map<String, dynamic>> images) {
+    final hasMultipleImages = images.length > 1;
+
     return Container(
       margin: const EdgeInsets.only(top: 8, bottom: 8),
-      child: CachedNetworkImage(
-        imageUrl: imageUrl,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        memCacheWidth: 1080,
-        maxWidthDiskCache: 1080,
-        placeholder:
-            (context, url) => Container(
-              height: 400,
-              color: const Color(0xFF1A1A1A),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFFB8FF00),
-                  strokeWidth: 2.5,
-                ),
-              ),
-            ),
-        errorWidget:
-            (context, url, error) => Container(
-              height: 400,
-              color: const Color(0xFF1A1A1A),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.white.withOpacity(0.3),
-                      size: 48,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Failed to load image',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 14,
+      child: Stack(
+        children: [
+          SizedBox(
+            height: 400,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: images.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentImageIndex = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                return CachedNetworkImage(
+                  imageUrl: images[index]['url'],
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  memCacheWidth: 1080,
+                  maxWidthDiskCache: 1080,
+                  placeholder:
+                      (context, url) => Container(
+                        height: 400,
+                        color: const Color(0xFF1A1A1A),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFB8FF00),
+                            strokeWidth: 2.5,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                  errorWidget:
+                      (context, url, error) => Container(
+                        height: 400,
+                        color: const Color(0xFF1A1A1A),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.white.withOpacity(0.3),
+                                size: 48,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Failed to load image',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                );
+              },
+            ),
+          ),
+          if (hasMultipleImages) _buildImageIndicator(images.length),
+          if (hasMultipleImages) _buildPageDots(images.length),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageIndicator(int imageCount) {
+    return Positioned(
+      top: 12,
+      right: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.photo_library, color: Colors.white, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              '${_currentImageIndex + 1}/$imageCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageDots(int imageCount) {
+    return Positioned(
+      bottom: 12,
+      left: 0,
+      right: 0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(
+          imageCount,
+          (index) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color:
+                  _currentImageIndex == index
+                      ? const Color(0xFFB8FF00)
+                      : Colors.white.withOpacity(0.5),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -580,7 +682,6 @@ class _UserPostCardState extends State<UserPostCard>
 
             return Row(
               children: [
-                // Display up to 3 overlapping profile pictures
                 SizedBox(
                   height: 28,
                   width: displayCount * 20.0 + 8,
@@ -698,6 +799,9 @@ class _UserPostCardState extends State<UserPostCard>
     }
   }
 }
+
+// Keep your existing LikesBottomSheet and CommentsBottomSheet classes here...
+// (They remain unchanged - I'm omitting them to save space, but keep them as-is)
 
 // Likes Bottom Sheet Widget
 class LikesBottomSheet extends StatefulWidget {

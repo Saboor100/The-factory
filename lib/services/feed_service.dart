@@ -18,10 +18,10 @@ class FeedService {
     }
   }
 
-  // Create post with optional image
+  // Create post with optional multiple images
   Future<Map<String, dynamic>> createPost({
     required String caption,
-    File? image,
+    List<File>? images, // Changed from File? image to List<File>? images
   }) async {
     try {
       final token = await _getToken();
@@ -31,7 +31,7 @@ class FeedService {
       }
 
       print('Creating post with caption: $caption');
-      print('Image provided: ${image != null}');
+      print('Images provided: ${images?.length ?? 0}');
 
       var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/posts'));
 
@@ -41,12 +41,17 @@ class FeedService {
       // Add caption
       request.fields['caption'] = caption;
 
-      // Add image if provided
-      if (image != null) {
-        print('Adding image to request...');
-        request.files.add(
-          await http.MultipartFile.fromPath('image', image.path),
-        );
+      // Add multiple images if provided
+      if (images != null && images.isNotEmpty) {
+        print('Adding ${images.length} images to request...');
+        for (var i = 0; i < images.length; i++) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'images', // Changed field name to 'images' for multiple files
+              images[i].path,
+            ),
+          );
+        }
       }
 
       print('Sending request to: $baseUrl/posts');
@@ -257,7 +262,6 @@ class FeedService {
     }
   }
 
-  // Get user posts feed
   // Get user posts feed
   Future<Map<String, dynamic>> getFeed({int page = 1, int limit = 10}) async {
     try {
