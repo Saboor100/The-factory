@@ -47,74 +47,79 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF1A1A1A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1A1A1A),
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Events',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
       body: Consumer<EventProvider>(
         builder: (context, eventProvider, child) {
           return CustomScrollView(
             controller: _scrollController,
             slivers: [
-              // App Bar
-              SliverAppBar(
-                expandedHeight: 120,
-                floating: false,
-                pinned: true,
-                backgroundColor: Theme.of(context).primaryColor,
-                flexibleSpace: FlexibleSpaceBar(
-                  title: const Text(
-                    'Events',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Theme.of(context).primaryColor,
-                          Theme.of(context).primaryColor.withOpacity(0.8),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Search and Filters
+              // Search and Filters Section
               SliverToBoxAdapter(
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  color: Colors.grey[50],
+                  color: const Color(0xFF1A1A1A),
                   child: Column(
                     children: [
                       // Search Bar
-                      TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search events...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon:
-                              _searchController.text.isNotEmpty
-                                  ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      eventProvider.setSearchQuery('');
-                                    },
-                                  )
-                                  : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25),
-                            borderSide: BorderSide.none,
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF3A3A3A),
+                            width: 1,
                           ),
-                          filled: true,
-                          fillColor: Colors.white,
                         ),
-                        onChanged: (value) {
-                          // Debounce search - you might want to add a proper debouncer
-                          eventProvider.setSearchQuery(value);
-                        },
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Search events...',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: Color(0xFFB8FF00),
+                            ),
+                            suffixIcon:
+                                _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                      icon: const Icon(
+                                        Icons.clear,
+                                        color: Colors.grey,
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        eventProvider.setSearchQuery('');
+                                      },
+                                    )
+                                    : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            eventProvider.setSearchQuery(value);
+                          },
+                        ),
                       ),
 
                       const SizedBox(height: 12),
@@ -130,14 +135,26 @@ class _EventsScreenState extends State<EventsScreen> {
                                 horizontal: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey[300]!),
+                                color: const Color(0xFF2A2A2A),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFF3A3A3A),
+                                  width: 1,
+                                ),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: eventProvider.selectedCategory,
                                   isExpanded: true,
+                                  dropdownColor: const Color(0xFF2A2A2A),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    color: Color(0xFFB8FF00),
+                                  ),
                                   items:
                                       eventProvider.categories
                                           .map(
@@ -148,9 +165,6 @@ class _EventsScreenState extends State<EventsScreen> {
                                                     .getCategoryDisplayName(
                                                       category,
                                                     ),
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                ),
                                               ),
                                             ),
                                           )
@@ -167,27 +181,53 @@ class _EventsScreenState extends State<EventsScreen> {
 
                           const SizedBox(width: 8),
 
-                          // Featured Filter
-                          FilterChip(
-                            label: const Text('Featured'),
-                            selected: eventProvider.showFeaturedOnly,
-                            onSelected: (selected) {
+                          // Featured Filter Chip
+                          GestureDetector(
+                            onTap: () {
                               eventProvider.toggleFeaturedOnly();
                             },
-                            selectedColor: Theme.of(
-                              context,
-                            ).primaryColor.withOpacity(0.2),
-                            checkmarkColor: Theme.of(context).primaryColor,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    eventProvider.showFeaturedOnly
+                                        ? const Color(0xFFB8FF00)
+                                        : const Color(0xFF2A2A2A),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color:
+                                      eventProvider.showFeaturedOnly
+                                          ? const Color(0xFFB8FF00)
+                                          : const Color(0xFF3A3A3A),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                'Featured',
+                                style: TextStyle(
+                                  color:
+                                      eventProvider.showFeaturedOnly
+                                          ? Colors.black
+                                          : Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
                           ),
-
-                          const SizedBox(width: 8),
 
                           // Clear Filters
                           if (eventProvider.selectedCategory != 'all' ||
                               eventProvider.searchQuery.isNotEmpty ||
                               eventProvider.showFeaturedOnly)
                             IconButton(
-                              icon: const Icon(Icons.clear_all),
+                              icon: const Icon(
+                                Icons.clear_all,
+                                color: Color(0xFFB8FF00),
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 eventProvider.clearFilters();
@@ -208,9 +248,12 @@ class _EventsScreenState extends State<EventsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(),
+                        CircularProgressIndicator(color: Color(0xFFB8FF00)),
                         SizedBox(height: 16),
-                        Text('Loading events...'),
+                        Text(
+                          'Loading events...',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ],
                     ),
                   ),
@@ -223,28 +266,41 @@ class _EventsScreenState extends State<EventsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.error_outline,
                           size: 64,
-                          color: Colors.red[300],
+                          color: Colors.red,
                         ),
                         const SizedBox(height: 16),
-                        Text(
+                        const Text(
                           'Error loading events',
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           eventProvider.error!,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
+                          style: const TextStyle(color: Colors.grey),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed:
                               () => eventProvider.loadEvents(refresh: true),
-                          child: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFB8FF00),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Retry',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -253,23 +309,26 @@ class _EventsScreenState extends State<EventsScreen> {
 
               // Events List
               if (eventProvider.filteredEvents.isNotEmpty)
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final event = eventProvider.filteredEvents[index];
-                    return EventCard(
-                      event: event,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    EventDetailsScreen(eventId: event.id),
-                          ),
-                        );
-                      },
-                    );
-                  }, childCount: eventProvider.filteredEvents.length),
+                SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final event = eventProvider.filteredEvents[index];
+                      return EventCard(
+                        event: event,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) =>
+                                      EventDetailsScreen(eventId: event.id),
+                            ),
+                          );
+                        },
+                      );
+                    }, childCount: eventProvider.filteredEvents.length),
+                  ),
                 ),
 
               // Empty State
@@ -284,19 +343,24 @@ class _EventsScreenState extends State<EventsScreen> {
                         Icon(
                           Icons.event_busy,
                           size: 64,
-                          color: Colors.grey[400],
+                          color: Colors.grey[600],
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No events found',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(color: Colors.grey[600]),
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Try adjusting your search or filters',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[500]),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextButton(
@@ -304,6 +368,9 @@ class _EventsScreenState extends State<EventsScreen> {
                             _searchController.clear();
                             eventProvider.clearFilters();
                           },
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFFB8FF00),
+                          ),
                           child: const Text('Clear all filters'),
                         ),
                       ],
@@ -316,7 +383,11 @@ class _EventsScreenState extends State<EventsScreen> {
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFB8FF00),
+                      ),
+                    ),
                   ),
                 ),
 

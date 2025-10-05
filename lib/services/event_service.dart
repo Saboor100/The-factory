@@ -5,7 +5,7 @@ import '../models/event_model.dart';
 
 class EventService {
   // Replace with your actual backend URL
-  static const String baseUrl = 'http://192.168.100.23:3000/api';
+  static const String baseUrl = 'http://192.168.100.16:3000/api';
 
   // You might want to get this from your existing auth_service
   String? get authToken => null; // Add your auth token logic here
@@ -201,6 +201,29 @@ class EventService {
     } catch (e) {
       return ApiResponse.error('Network error: $e');
     }
+  }
+
+  // Add this to event_service.dart
+
+  Future<String> getTicketHtml(String registrationId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/tickets/$registrationId'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        return response.body; // Returns HTML
+      } else {
+        throw Exception('Failed to load ticket');
+      }
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+
+  Future<String> getTicketDownloadUrl(String registrationId) async {
+    return '$baseUrl/tickets/$registrationId/download';
   }
 
   // Mark registration as paid (after payment processing)

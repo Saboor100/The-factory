@@ -1,5 +1,5 @@
 class Constants {
-  static const String uri = 'http://192.168.100.23:3000';
+  static const String uri = 'http://192.168.100.16:3000';
 }
 
 class ApiConstants {

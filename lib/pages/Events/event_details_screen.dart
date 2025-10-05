@@ -39,7 +39,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
       if (response.success && response.data != null) {
         _localEvent = response.data!;
-        context.read<EventProvider>().updateEvent(_localEvent!); // update cache
+        context.read<EventProvider>().updateEvent(_localEvent!);
       } else {
         _localError = response.error ?? 'Failed to load';
       }
@@ -55,6 +55,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF1A1A1A),
       body: _buildContent(),
       floatingActionButton:
           _localEvent != null &&
@@ -71,8 +72,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                     ),
                   );
                 },
+                backgroundColor: const Color(0xFFB8FF00),
+                foregroundColor: Colors.black,
                 icon: const Icon(Icons.app_registration),
-                label: const Text('Register Now'),
+                label: const Text(
+                  'Register Now',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               )
               : null,
     );
@@ -81,15 +87,18 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   Widget _buildContent() {
     // Loading state
     if (_isLocalLoading) {
-      return const Scaffold(
-        appBar: null,
-        body: Center(
+      return Scaffold(
+        backgroundColor: const Color(0xFF1A1A1A),
+        body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(),
+              CircularProgressIndicator(color: Color(0xFFB8FF00)),
               SizedBox(height: 16),
-              Text('Loading event details...'),
+              Text(
+                'Loading event details...',
+                style: TextStyle(color: Colors.white),
+              ),
             ],
           ),
         ),
@@ -99,9 +108,10 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     // Error state
     if (_localError != null) {
       return Scaffold(
+        backgroundColor: const Color(0xFF1A1A1A),
         appBar: AppBar(
           title: const Text('Event Details'),
-          backgroundColor: Theme.of(context).primaryColor,
+          backgroundColor: const Color(0xFF1A1A1A),
           foregroundColor: Colors.white,
         ),
         body: Center(
@@ -110,11 +120,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
+                const Icon(Icons.error_outline, size: 80, color: Colors.red),
                 const SizedBox(height: 24),
-                Text(
+                const Text(
                   'Error Loading Event',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -122,15 +134,14 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 Text(
                   _localError!,
                   textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                  style: const TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Event ID: ${widget.eventId}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[500],
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -140,13 +151,23 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   children: [
                     ElevatedButton.icon(
                       onPressed: _loadEventDetails,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFB8FF00),
+                        foregroundColor: Colors.black,
+                      ),
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+                      label: const Text(
+                        'Retry',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Go Back'),
+                      child: const Text(
+                        'Go Back',
+                        style: TextStyle(color: Color(0xFFB8FF00)),
+                      ),
                     ),
                   ],
                 ),
@@ -160,36 +181,43 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     // Event not found state
     if (_localEvent == null) {
       return Scaffold(
+        backgroundColor: const Color(0xFF1A1A1A),
         appBar: AppBar(
           title: const Text('Event Details'),
-          backgroundColor: Theme.of(context).primaryColor,
+          backgroundColor: const Color(0xFF1A1A1A),
           foregroundColor: Colors.white,
         ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.event_busy, size: 80, color: Colors.grey[400]),
+              Icon(Icons.event_busy, size: 80, color: Colors.grey[600]),
               const SizedBox(height: 24),
               Text(
                 'Event Not Found',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey[600],
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
+              const Text(
                 'The event you\'re looking for doesn\'t exist or has been removed.',
                 textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Go Back'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB8FF00),
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text(
+                  'Go Back',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -197,8 +225,11 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       );
     }
 
-    // Success state - show event details
-    return Scaffold(body: _buildEventDetails(context, _localEvent!));
+    // Success state
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A1A),
+      body: _buildEventDetails(context, _localEvent!),
+    );
   }
 
   Widget _buildEventDetails(BuildContext context, Event event) {
@@ -208,7 +239,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
         SliverAppBar(
           expandedHeight: 300,
           pinned: true,
-          backgroundColor: Theme.of(context).primaryColor,
+          backgroundColor: const Color(0xFF1A1A1A),
           foregroundColor: Colors.white,
           flexibleSpace: FlexibleSpaceBar(
             title: Text(
@@ -219,7 +250,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   Shadow(
                     offset: Offset(1, 1),
                     blurRadius: 3,
-                    color: Colors.black54,
+                    color: Colors.black87,
                   ),
                 ],
               ),
@@ -237,15 +268,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                           },
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
-                            return Center(
+                            return const Center(
                               child: CircularProgressIndicator(
-                                value:
-                                    loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress
-                                                .cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                color: Colors.white,
+                                color: Color(0xFFB8FF00),
                               ),
                             );
                           },
@@ -257,7 +282,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.3),
+                                Colors.black.withOpacity(0.7),
                               ],
                             ),
                           ),
@@ -277,17 +302,14 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               children: [
                 // Status Badges
                 _buildStatusBadges(event),
-
                 const SizedBox(height: 20),
 
                 // Basic Info
                 _buildBasicInfo(event),
-
                 const SizedBox(height: 24),
 
                 // Description
                 _buildDescription(event),
-
                 const SizedBox(height: 24),
 
                 // Ticket Types
@@ -298,8 +320,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
                 // Organizer Info
                 _buildOrganizerInfo(event),
-
-                const SizedBox(height: 100), // Space for floating button
+                const SizedBox(height: 100),
               ],
             ),
           ),
@@ -350,14 +371,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.orange,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.orange.withOpacity(0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
               'FEATURED',
@@ -371,16 +385,19 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _getCategoryColor(event.category).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _getCategoryColor(event.category)),
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _getCategoryColor(event.category),
+              width: 2,
+            ),
           ),
           child: Text(
             event.categoryDisplayName,
             style: TextStyle(
               color: _getCategoryColor(event.category),
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -388,10 +405,16 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color:
-                event.isRegistrationOpen ? Colors.green[100] : Colors.red[100],
-            borderRadius: BorderRadius.circular(16),
+                event.isRegistrationOpen
+                    ? const Color(0xFFB8FF00)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: event.isRegistrationOpen ? Colors.green : Colors.red,
+              color:
+                  event.isRegistrationOpen
+                      ? const Color(0xFFB8FF00)
+                      : Colors.red,
+              width: 2,
             ),
           ),
           child: Row(
@@ -400,7 +423,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               Icon(
                 event.isRegistrationOpen ? Icons.check_circle : Icons.cancel,
                 size: 14,
-                color: event.isRegistrationOpen ? Colors.green : Colors.red,
+                color: event.isRegistrationOpen ? Colors.black : Colors.red,
               ),
               const SizedBox(width: 4),
               Text(
@@ -408,9 +431,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                     ? 'Registration Open'
                     : 'Registration Closed',
                 style: TextStyle(
-                  color: event.isRegistrationOpen ? Colors.green : Colors.red,
+                  color: event.isRegistrationOpen ? Colors.black : Colors.red,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -425,15 +448,15 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildInfoRow(Icons.calendar_today, 'Date', event.formattedDateRange),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         _buildInfoRow(Icons.location_on, 'Location', event.location),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         _buildInfoRow(
           Icons.access_time,
           'Registration Deadline',
           '${event.registrationDeadline.day}/${event.registrationDeadline.month}/${event.registrationDeadline.year}',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         _buildInfoRow(
           Icons.people,
           'Total Registrations',
@@ -445,22 +468,22 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[200]!),
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF3A3A3A)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
+              color: const Color(0xFFB8FF00).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 18, color: Theme.of(context).primaryColor),
+            child: Icon(icon, size: 20, color: const Color(0xFFB8FF00)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -469,18 +492,19 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
-                    color: Colors.grey[600],
+                    color: Colors.grey,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   value,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
               ],
@@ -495,35 +519,40 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'About This Event',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[50],
+            color: const Color(0xFF2A2A2A),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
+            border: Border.all(color: const Color(0xFF3A3A3A)),
           ),
           child: Text(
             event.description,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            style: TextStyle(
               height: 1.6,
-              color: Colors.grey[700],
+              color: Colors.grey[300],
+              fontSize: 15,
             ),
           ),
         ),
         if (event.tags.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'Tags',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -538,15 +567,18 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue[50],
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue[200]!),
+                          border: Border.all(
+                            color: const Color(0xFFB8FF00),
+                            width: 1,
+                          ),
                         ),
                         child: Text(
                           '#$tag',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.blue[700],
+                            color: Color(0xFFB8FF00),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -563,11 +595,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Ticket Types',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 12),
         ...event.ticketTypes.map((ticket) => _buildTicketTypeCard(ticket)),
@@ -576,116 +610,122 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   }
 
   Widget _buildTicketTypeCard(TicketType ticket) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    ticket.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF3A3A3A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  ticket.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '\$${ticket.price.toStringAsFixed(0)}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB8FF00).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '\$${ticket.price.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB8FF00),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              ticket.description,
-              style: TextStyle(color: Colors.grey[600], height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            ticket.description,
+            style: TextStyle(color: Colors.grey[400], height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.people, size: 16, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Available: ${ticket.availableSpots}/${ticket.maxCapacity}',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      ticket.hasAvailableSpots
+                          ? const Color(0xFFB8FF00)
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color:
+                        ticket.hasAvailableSpots
+                            ? const Color(0xFFB8FF00)
+                            : Colors.red,
+                    width: 2,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.people, size: 16, color: Colors.grey[600]),
+                    Icon(
+                      ticket.hasAvailableSpots
+                          ? Icons.check_circle
+                          : Icons.cancel,
+                      size: 12,
+                      color:
+                          ticket.hasAvailableSpots ? Colors.black : Colors.red,
+                    ),
                     const SizedBox(width: 4),
                     Text(
-                      'Available: ${ticket.availableSpots}/${ticket.maxCapacity}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ticket.hasAvailableSpots ? 'Available' : 'Sold Out',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color:
+                            ticket.hasAvailableSpots
+                                ? Colors.black
+                                : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color:
-                        ticket.hasAvailableSpots
-                            ? Colors.green[100]
-                            : Colors.red[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        ticket.hasAvailableSpots
-                            ? Icons.check_circle
-                            : Icons.cancel,
-                        size: 12,
-                        color:
-                            ticket.hasAvailableSpots
-                                ? Colors.green
-                                : Colors.red,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        ticket.hasAvailableSpots ? 'Available' : 'Sold Out',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color:
-                              ticket.hasAvailableSpots
-                                  ? Colors.green
-                                  : Colors.red,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildOrganizerInfo(Event event) {
-    // Check if we have organizer information
     final hasOrganizerName = event.organizerName.isNotEmpty;
     final hasOrganizerEmail = event.organizerEmail.isNotEmpty;
     final hasOrganizerPhone =
@@ -694,125 +734,79 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Organizer',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 12),
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF3A3A3A)),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.person,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        hasOrganizerName
-                            ? event.organizerName
-                            : 'Event Organizer',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: hasOrganizerName ? null : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Email
-                if (hasOrganizerEmail)
-                  _buildContactRow(Icons.email, event.organizerEmail)
-                else
-                  _buildContactRow(
-                    Icons.email,
-                    'Email not provided',
-                    isPlaceholder: true,
-                  ),
-
-                // Phone
-                if (hasOrganizerPhone) ...[
-                  const SizedBox(height: 8),
-                  _buildContactRow(Icons.phone, event.organizerPhone!),
-                ] else ...[
-                  const SizedBox(height: 8),
-                  _buildContactRow(
-                    Icons.phone,
-                    'Phone not provided',
-                    isPlaceholder: true,
-                  ),
-                ],
-
-                // Debug info (remove this in production)
-                if (!hasOrganizerName || !hasOrganizerEmail) ...[
-                  const SizedBox(height: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.orange[50],
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.orange[200]!),
+                      color: const Color(0xFFB8FF00).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Debug Info:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange[800],
-                          ),
-                        ),
-                        Text(
-                          'Name: "${event.organizerName}"',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange[700],
-                          ),
-                        ),
-                        Text(
-                          'Email: "${event.organizerEmail}"',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange[700],
-                          ),
-                        ),
-                        if (event.organizerPhone != null)
-                          Text(
-                            'Phone: "${event.organizerPhone}"',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.orange[700],
-                            ),
-                          ),
-                      ],
+                    child: const Icon(
+                      Icons.person,
+                      color: Color(0xFFB8FF00),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      hasOrganizerName
+                          ? event.organizerName
+                          : 'Event Organizer',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: hasOrganizerName ? Colors.white : Colors.grey,
+                      ),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+
+              // Email
+              if (hasOrganizerEmail)
+                _buildContactRow(Icons.email, event.organizerEmail)
+              else
+                _buildContactRow(
+                  Icons.email,
+                  'Email not provided',
+                  isPlaceholder: true,
+                ),
+
+              // Phone
+              if (hasOrganizerPhone) ...[
+                const SizedBox(height: 12),
+                _buildContactRow(Icons.phone, event.organizerPhone!),
+              ] else ...[
+                const SizedBox(height: 12),
+                _buildContactRow(
+                  Icons.phone,
+                  'Phone not provided',
+                  isPlaceholder: true,
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ],
@@ -829,15 +823,16 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
         Icon(
           icon,
           size: 16,
-          color: isPlaceholder ? Colors.grey[400] : Colors.grey[600],
+          color: isPlaceholder ? Colors.grey[700] : Colors.grey,
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             value,
             style: TextStyle(
-              color: isPlaceholder ? Colors.grey[500] : Colors.grey[700],
+              color: isPlaceholder ? Colors.grey[700] : Colors.grey[300],
               fontStyle: isPlaceholder ? FontStyle.italic : FontStyle.normal,
+              fontSize: 14,
             ),
           ),
         ),

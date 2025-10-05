@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/event_model.dart';
 import '../../providers/event_provider.dart';
+import 'ticket_viewer_screen.dart';
 
 class EventRegistrationScreen extends StatefulWidget {
   final Event event;
@@ -59,10 +60,12 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF1A1A1A),
       appBar: AppBar(
         title: const Text('Event Registration'),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: const Color(0xFF1A1A1A),
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Consumer<RegistrationProvider>(
         builder: (context, registrationProvider, child) {
@@ -72,20 +75,27 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
-                color: Colors.grey[50],
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2A2A2A),
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFF3A3A3A), width: 1),
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       widget.event.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${widget.event.formattedDateRange} • ${widget.event.location}',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                   ],
                 ),
@@ -300,6 +310,14 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                   registrationProvider.isValidatingDiscount
                                       ? null
                                       : _validateDiscountCode,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFB8FF00),
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 16,
+                                ),
+                              ),
                               child:
                                   registrationProvider.isValidatingDiscount
                                       ? const SizedBox(
@@ -307,9 +325,18 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                         height: 16,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.black,
+                                              ),
                                         ),
                                       )
-                                      : const Text('Apply'),
+                                      : const Text(
+                                        'Apply',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                             ),
                           ],
                         ),
@@ -322,14 +349,17 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                             decoration: BoxDecoration(
                               color:
                                   registrationProvider.hasValidDiscount
-                                      ? Colors.green[50]
-                                      : Colors.red[50],
+                                      ? const Color(
+                                        0xFFB8FF00,
+                                      ).withOpacity(0.15)
+                                      : Colors.red.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color:
                                     registrationProvider.hasValidDiscount
-                                        ? Colors.green
+                                        ? const Color(0xFFB8FF00)
                                         : Colors.red,
+                                width: 2,
                               ),
                             ),
                             child: Text(
@@ -337,9 +367,9 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                               style: TextStyle(
                                 color:
                                     registrationProvider.hasValidDiscount
-                                        ? Colors.green[700]
-                                        : Colors.red[700],
-                                fontWeight: FontWeight.w500,
+                                        ? const Color(0xFFB8FF00)
+                                        : Colors.red,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -361,16 +391,11 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      spreadRadius: 1,
-                      blurRadius: 4,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2A2A2A),
+                  border: Border(
+                    top: BorderSide(color: Color(0xFF3A3A3A), width: 1),
+                  ),
                 ),
                 child: ElevatedButton(
                   onPressed:
@@ -379,8 +404,10 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                           : null,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFB8FF00),
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: const Color(0xFF3A3A3A),
+                    disabledForegroundColor: Colors.grey,
                   ),
                   child:
                       _isSubmitting
@@ -393,12 +420,15 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
+                                    Colors.black,
                                   ),
                                 ),
                               ),
                               SizedBox(width: 12),
-                              Text('Registering...'),
+                              Text(
+                                'Registering...',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                             ],
                           )
                           : Text(
@@ -424,9 +454,11 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -441,13 +473,32 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        labelStyle: const TextStyle(color: Colors.grey),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
+        ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Theme.of(context).primaryColor),
+          borderSide: const BorderSide(color: Color(0xFFB8FF00), width: 2),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red, width: 2),
+        ),
+        filled: true,
+        fillColor: const Color(0xFF2A2A2A),
       ),
     );
   }
@@ -456,17 +507,36 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
     return Column(
       children:
           widget.event.availableTicketTypes.map((ticket) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
+            final isSelected = _selectedTicketType == ticket.name;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color:
+                      isSelected
+                          ? const Color(0xFFB8FF00)
+                          : const Color(0xFF3A3A3A),
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
               child: RadioListTile<String>(
                 title: Text(
                   ticket.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(ticket.description),
+                    const SizedBox(height: 4),
+                    Text(
+                      ticket.description,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       'Available: ${ticket.availableSpots}/${ticket.maxCapacity}',
@@ -476,20 +546,20 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                 ),
                 secondary: Text(
                   '\$${ticket.price.toStringAsFixed(0)}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
+                    color: Color(0xFFB8FF00),
                   ),
                 ),
                 value: ticket.name,
                 groupValue: _selectedTicketType,
+                activeColor: const Color(0xFFB8FF00),
                 onChanged: (value) {
                   setState(() {
                     _selectedTicketType = value;
                     _selectedTicket = ticket;
                   });
-                  // Clear discount when ticket type changes
                   context.read<RegistrationProvider>().clearDiscount();
                 },
               ),
@@ -503,63 +573,74 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
     final finalPrice = _calculateFinalPrice(registrationProvider);
     final discount = basePrice - finalPrice;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Price Summary',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF3A3A3A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Price Summary',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Base Price:'),
-                Text('\$${basePrice.toStringAsFixed(2)}'),
-              ],
-            ),
-            if (discount > 0) ...[
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Discount (${_discountCodeController.text}):',
-                    style: const TextStyle(color: Colors.green),
-                  ),
-                  Text(
-                    '-\$${discount.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.green),
-                  ),
-                ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Base Price:', style: TextStyle(color: Colors.grey)),
+              Text(
+                '\$${basePrice.toStringAsFixed(2)}',
+                style: const TextStyle(color: Colors.white),
               ),
             ],
-            const Divider(),
+          ),
+          if (discount > 0) ...[
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Total:',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'Discount (${_discountCodeController.text}):',
+                  style: const TextStyle(color: Color(0xFFB8FF00)),
                 ),
                 Text(
-                  '\$${finalPrice.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
+                  '-\$${discount.toStringAsFixed(2)}',
+                  style: const TextStyle(color: Color(0xFFB8FF00)),
                 ),
               ],
             ),
           ],
-        ),
+          const Divider(color: Color(0xFF3A3A3A), height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total:',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '\$${finalPrice.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB8FF00),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -652,95 +733,208 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
       context: context,
       barrierDismissible: false,
       builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green, size: 28),
-                SizedBox(width: 8),
-                Text('Registration Successful!'),
-              ],
+          (context) => Dialog(
+            backgroundColor: const Color(0xFF2A2A2A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Your registration has been confirmed.',
-                  style: TextStyle(fontSize: 16),
-                ),
-                SizedBox(height: 12),
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Confirmation Number:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+            insetPadding: const EdgeInsets.all(20),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+                maxWidth: MediaQuery.of(context).size.width - 40,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title Row
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFFB8FF00),
+                          size: 28,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: const Text(
+                            'Registration Successful!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Success Message
+                    const Text(
+                      'Your registration has been confirmed.',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Confirmation Details
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A1A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF3A3A3A)),
                       ),
-                      Text(
-                        registrationResponse.confirmationNumber,
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Theme.of(context).primaryColor,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Confirmation Number:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          SelectableText(
+                            registrationResponse.confirmationNumber,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFFB8FF00),
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Event: ${registrationResponse.event.title}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Participant: ${registrationResponse.participant.name}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Total: \${registrationResponse.pricing.finalPrice.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Payment Status Message
+                    if (registrationResponse.paymentRequired)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange, width: 1),
+                        ),
+                        child: const Text(
+                          'Please proceed with payment to complete your registration.',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFB8FF00).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFB8FF00),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'Your registration is complete!',
+                          style: TextStyle(
+                            color: Color(0xFFB8FF00),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                      SizedBox(height: 8),
-                      Text('Event: ${registrationResponse.event.title}'),
-                      Text(
-                        'Participant: ${registrationResponse.participant.name}',
+
+                    const SizedBox(height: 24),
+
+                    // Action Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          if (registrationResponse.paymentRequired) {
+                            _proceedToPayment(registrationResponse);
+                          } else {
+                            Navigator.of(context).pop();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => TicketViewerScreen(
+                                      registrationId:
+                                          registrationResponse.registrationId,
+                                      confirmationNumber:
+                                          registrationResponse
+                                              .confirmationNumber,
+                                    ),
+                              ),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB8FF00),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          registrationResponse.paymentRequired
+                              ? 'Proceed to Payment'
+                              : 'View Ticket',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
-                      Text(
-                        'Total: \${registrationResponse.pricing.finalPrice.toStringAsFixed(2)}',
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 12),
-                if (registrationResponse.paymentRequired)
-                  Text(
-                    'Please proceed with payment to complete your registration.',
-                    style: TextStyle(
-                      color: Colors.orange[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  )
-                else
-                  Text(
-                    'Your registration is complete!',
-                    style: TextStyle(
-                      color: Colors.green[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-              ],
+              ),
             ),
-            actions: [
-              if (registrationResponse.paymentRequired)
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _proceedToPayment(registrationResponse);
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text('Proceed to Payment'),
-                )
-              else
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pop(); // Go back to events list
-                  },
-                  child: Text('Done'),
-                ),
-            ],
           ),
     );
   }
@@ -750,54 +944,115 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Row(
+            backgroundColor: const Color(0xFF2A2A2A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
               children: [
                 Icon(Icons.error, color: Colors.red, size: 28),
                 SizedBox(width: 8),
-                Text('Registration Failed'),
+                Text(
+                  'Registration Failed',
+                  style: TextStyle(color: Colors.white),
+                ),
               ],
             ),
-            content: Text(message),
+            content: Text(message, style: const TextStyle(color: Colors.white)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text('OK'),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFB8FF00),
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
     );
   }
 
-  void _proceedToPayment(RegistrationResponse registrationResponse) {
-    // TODO: Implement payment processing
-    // This is where you would integrate with Stripe, PayPal, etc.
-
-    showDialog(
+  void _proceedToPayment(RegistrationResponse registrationResponse) async {
+    final shouldProceed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder:
           (context) => AlertDialog(
-            title: Text('Payment Integration'),
+            backgroundColor: const Color(0xFF2A2A2A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Payment Integration',
+              style: TextStyle(color: Colors.white),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Payment integration would go here.'),
-                SizedBox(height: 12),
-                Text('Registration ID: ${registrationResponse.registrationId}'),
+                const Text(
+                  'Payment integration would go here.',
+                  style: TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 12),
                 Text(
-                  'Amount: \${registrationResponse.pricing.finalPrice.toStringAsFixed(2)}',
+                  'Registration ID: ${registrationResponse.registrationId}',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                Text(
+                  'Amount: \$${registrationResponse.pricing.finalPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(color: Colors.grey),
                 ),
               ],
             ),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pop(); // Go back to events list
-                },
-                child: Text('Done'),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB8FF00),
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text(
+                  'Simulate Payment',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
     );
+
+    if (shouldProceed == true && mounted) {
+      Navigator.of(context).pop();
+      Navigator.of(context).pop();
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder:
+              (context) => TicketViewerScreen(
+                registrationId: registrationResponse.registrationId,
+                confirmationNumber: registrationResponse.confirmationNumber,
+              ),
+        ),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment simulated successfully!'),
+          backgroundColor: Color(0xFFB8FF00),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }

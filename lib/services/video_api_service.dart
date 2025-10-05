@@ -5,7 +5,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VideoApiService {
-  static const String baseUrl = 'http://192.168.100.23:3000/api';
+  static const String baseUrl = 'http://192.168.100.16:3000/api';
 
   // UPDATED: Enhanced streaming URL method with multiple quality options
   static Future<Map<String, dynamic>> getStreamingUrl(String videoId) async {

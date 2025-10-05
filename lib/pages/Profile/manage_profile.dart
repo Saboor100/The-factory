@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:the_factory/providers/user_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../models/profile.dart';
 
@@ -77,7 +78,10 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
   }
 
   void _populateFields(Profile? profile) {
-    if (profile != null && !_fieldsPopulated) {
+    if (_fieldsPopulated) return; // Prevent repopulating
+
+    if (profile != null) {
+      // Populate from profile data
       _fullNameController.text = profile.fullName ?? '';
       _streetController.text = profile.address?.street ?? '';
       _cityController.text = profile.address?.city ?? '';
@@ -89,15 +93,30 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
       _instagramController.text = profile.instagramHandle ?? '';
       selectedDate = profile.dob;
 
-      // FIXED: Ensure position matches backend enum
+      // Ensure position matches backend enum
       if (profile.position != null && positions.contains(profile.position)) {
         selectedPosition = profile.position!;
       } else {
-        selectedPosition = 'Other'; // Default fallback
+        selectedPosition = 'Other';
       }
 
       _fieldsPopulated = true;
       setState(() {});
+
+      print("✅ Fields populated from profile");
+    } else {
+      // No profile exists - try to get name from UserProvider
+      try {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        if (userProvider.user.name.isNotEmpty) {
+          _fullNameController.text = userProvider.user.name;
+          print("📝 Pre-filled name from User: ${userProvider.user.name}");
+        }
+        _fieldsPopulated = true;
+        setState(() {});
+      } catch (e) {
+        print("⚠️ Could not get user name: $e");
+      }
     }
   }
 

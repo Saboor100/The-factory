@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,8 @@ import 'package:the_factory/providers/user_provider.dart';
 import 'package:the_factory/models/user.dart';
 import 'package:provider/provider.dart';
 import '../pages/Home_screen/home_screen.dart';
+import '../pages/login_screens/login.dart';
+import 'package:the_factory/providers/profile_provider.dart';
 
 class AuthService {
   void signupUser({
@@ -52,6 +55,13 @@ class AuthService {
   }) async {
     try {
       print("🔄 Starting sign in process...");
+
+      // ✅ CRITICAL: Clear ALL caches BEFORE signin
+      imageCache.clear();
+      imageCache.clearLiveImages();
+      await CachedNetworkImage.evictFromCache(''); // Clear all
+      print("🗑️ All image caches cleared before signin");
+
       var userProvider = Provider.of<UserProvider>(context, listen: false);
       final navigator = Navigator.of(context);
 
@@ -64,7 +74,6 @@ class AuthService {
       );
 
       print("📱 Sign in response status: ${res.statusCode}");
-      print("📱 Sign in response body: ${res.body}");
 
       httpErrorHandle(
         response: res,
@@ -77,21 +86,30 @@ class AuthService {
           var responseData = jsonDecode(res.body);
           print("📊 Parsed response data: $responseData");
 
-          // Set user data
-          userProvider.setUser(res.body);
-          print("👤 User set in provider");
-
           // Store token
           String token = responseData['token'];
           await prefs.setString('x-auth-token', token);
           print("💾 Token stored: ${token.substring(0, 20)}...");
 
-          // ✅ Save avatar URL for instant load
+          // ✅ CRITICAL: Remove old avatar URL completely
+          await prefs.remove('user-avatar-url');
+          print("🗑️ Old avatar URL removed");
+
+          // Store NEW avatar URL only if it exists
           String? avatarUrl = responseData['avatar']?['url'];
           if (avatarUrl != null && avatarUrl.isNotEmpty) {
             await prefs.setString('user-avatar-url', avatarUrl);
-            print("💾 Avatar cached: $avatarUrl");
+            print("💾 New avatar cached: $avatarUrl");
+          } else {
+            print("⚠️ No avatar in response - user needs to create profile");
           }
+
+          // Store user data
+          await prefs.setString('user-data', res.body);
+
+          // Set user in provider
+          userProvider.setUser(res.body);
+          print("👤 User set in provider");
 
           navigator.pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => FactoryFeedScreen()),
@@ -219,6 +237,7 @@ class AuthService {
     }
   }
 
+  // ✅ FIXED: More resilient getUserData with better error handling
   Future<void> getUserData(BuildContext context) async {
     print("🔄 getUserData: Starting...");
 
@@ -246,63 +265,135 @@ class AuthService {
         return;
       }
 
+      // ✅ CRITICAL FIX: Load cached user data FIRST (instant UI)
+      String? cachedUserData = prefs.getString('user-data');
+      if (cachedUserData != null) {
+        print("✅ Loading cached user data immediately");
+        userProvider.setUser(cachedUserData);
+      }
+
       print("🔍 getUserData: Validating token...");
 
-      var tokenRes = await http.post(
-        Uri.parse('${Constants.uri}/api/tokenIsValid'),
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'x-auth-token': token,
-        },
-      );
+      // ✅ FIXED: Better error handling for token validation
+      http.Response? tokenRes;
+      try {
+        tokenRes = await http
+            .post(
+              Uri.parse('${Constants.uri}/api/tokenIsValid'),
+              headers: {
+                'Content-Type': 'application/json; charset=UTF-8',
+                'x-auth-token': token,
+              },
+            )
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () {
+                print("⏰ Token validation timeout - using cached data");
+                throw Exception('Request timeout');
+              },
+            );
+      } catch (e) {
+        print("⚠️ Token validation failed: $e");
+        // If we have cached data, keep the user logged in
+        if (cachedUserData != null) {
+          print("✅ Using cached data, keeping user logged in");
+          userProvider.setLoading(false);
+          return;
+        } else {
+          // No cached data, must logout
+          await _clearTokenAndLogout(prefs, userProvider);
+          return;
+        }
+      }
 
       print("📱 getUserData: Token validation status: ${tokenRes.statusCode}");
       print("📱 getUserData: Token validation body: ${tokenRes.body}");
 
+      // ✅ FIXED: Handle non-200 responses gracefully
       if (tokenRes.statusCode != 200) {
-        print("❌ Token invalid — logging out...");
-        await _clearTokenAndLogout(prefs, userProvider);
+        print("❌ Token validation failed with status ${tokenRes.statusCode}");
+        // Keep cached data if available, otherwise logout
+        if (cachedUserData == null) {
+          await _clearTokenAndLogout(prefs, userProvider);
+        } else {
+          print("✅ Keeping cached user data");
+          userProvider.setLoading(false);
+        }
         return;
       }
 
       var tokenResponse = jsonDecode(tokenRes.body);
 
       if (tokenResponse == true) {
-        print("✅ Token is valid, fetching user data...");
+        print("✅ Token is valid, fetching fresh user data...");
 
-        http.Response userRes = await http.get(
-          Uri.parse('${Constants.uri}/api/'),
-          headers: {
-            'Content-Type': 'application/json; charset=UTF-8',
-            'x-auth-token': token,
-          },
-        );
+        try {
+          http.Response userRes = await http
+              .get(
+                Uri.parse('${Constants.uri}/api/'),
+                headers: {
+                  'Content-Type': 'application/json; charset=UTF-8',
+                  'x-auth-token': token,
+                },
+              )
+              .timeout(
+                const Duration(seconds: 10),
+                onTimeout: () {
+                  print("⏰ User data fetch timeout - using cached data");
+                  throw Exception('Request timeout');
+                },
+              );
 
-        print("📱 User data response - Status: ${userRes.statusCode}");
-        print("📱 User data response body: ${userRes.body}");
+          print("📱 User data response - Status: ${userRes.statusCode}");
+          print("📱 User data response body: ${userRes.body}");
 
-        if (userRes.statusCode == 200) {
-          print("✅ User data fetched successfully");
-          userProvider.setUser(userRes.body);
-        } else {
-          print("❌ Failed to fetch user data");
-          await _clearTokenAndLogout(prefs, userProvider);
+          if (userRes.statusCode == 200) {
+            print("✅ User data fetched successfully");
+            // Update both provider and cache
+            userProvider.setUser(userRes.body);
+            await prefs.setString('user-data', userRes.body);
+            print("💾 User data cache updated");
+          } else {
+            print("⚠️ Failed to fetch user data - using cached data");
+            // Keep using cached data if available
+            if (cachedUserData == null) {
+              await _clearTokenAndLogout(prefs, userProvider);
+            }
+          }
+        } catch (e) {
+          print("⚠️ Error fetching user data: $e - using cached data");
+          // Keep using cached data
+          if (cachedUserData == null) {
+            await _clearTokenAndLogout(prefs, userProvider);
+          } else {
+            userProvider.setLoading(false);
+          }
         }
       } else {
         print("❌ Token validation returned false");
         await _clearTokenAndLogout(prefs, userProvider);
       }
     } catch (e) {
-      print("❌ getUserData: Error: $e");
+      print("❌ getUserData: Critical error: $e");
+
+      // ✅ CRITICAL: Don't logout on network errors if we have cached data
       try {
         SharedPreferences prefs = await SharedPreferences.getInstance();
-        await _clearTokenAndLogout(prefs, userProvider);
+        String? cachedUserData = prefs.getString('user-data');
+
+        if (cachedUserData != null) {
+          print(
+            "✅ Network error but cached data exists - keeping user logged in",
+          );
+          userProvider.setUser(cachedUserData);
+          userProvider.setLoading(false);
+        } else {
+          print("❌ Network error and no cache - logging out");
+          await _clearTokenAndLogout(prefs, userProvider);
+        }
       } catch (clearError) {
-        print("❌ Error clearing token: $clearError");
+        print("❌ Error in error handling: $clearError");
         userProvider.setLoading(false);
-      }
-      if (context.mounted) {
-        showSnackBar(context, 'Session expired. Please login again.');
       }
     }
   }
@@ -314,9 +405,10 @@ class AuthService {
     print("🗑️ Clearing token and user...");
     try {
       await prefs.remove('x-auth-token');
-      await prefs.remove('user-avatar-url'); // ✅ Also clear avatar cache here
+      await prefs.remove('user-avatar-url');
+      await prefs.remove('user-data'); // ✅ Clear cached data too
       userProvider.clearUser();
-      print("✅ Cleared token and avatar cache");
+      print("✅ Cleared all auth data");
     } catch (e) {
       print("❌ Error in logout cleanup: $e");
       userProvider.setLoading(false);
@@ -325,18 +417,36 @@ class AuthService {
 
   Future<void> logout(BuildContext context) async {
     try {
-      print("🚪 Logging out...");
+      print("🚪 LOGOUT STARTED");
+
       var userProvider = Provider.of<UserProvider>(context, listen: false);
       SharedPreferences prefs = await SharedPreferences.getInstance();
 
-      await prefs.remove('x-auth-token');
-      await prefs.remove('user-avatar-url'); // ✅ Also clear on full logout
-      userProvider.clearUser();
+      // Clear everything
+      await prefs.clear();
+      print("✅ SharedPreferences cleared");
 
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      showSnackBar(context, 'Logged out successfully');
+      // Clear image cache
+      imageCache.clear();
+      imageCache.clearLiveImages();
+      print("✅ Image cache cleared");
+
+      // Clear user
+      userProvider.clearUser();
+      print("✅ UserProvider cleared");
+
+      // FORCE NAVIGATION TO LOGIN SCREEN
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const FactoryLoginScreen()),
+          (route) => false,
+        );
+        print("✅ Navigated to login screen");
+      }
+
+      print("🚪 LOGOUT COMPLETED");
     } catch (e) {
-      showSnackBar(context, 'Error logging out: ${e.toString()}');
+      print("❌ Error logging out: $e");
     }
   }
 
@@ -348,5 +458,34 @@ class AuthService {
       "🔍 isLoggedIn: $loggedIn (token: ${token != null ? 'exists' : 'null'})",
     );
     return loggedIn;
+  }
+
+  // ✅ NEW: Manual token refresh if needed
+  Future<bool> refreshUserData(BuildContext context) async {
+    try {
+      var userProvider = Provider.of<UserProvider>(context, listen: false);
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('x-auth-token');
+
+      if (token == null) return false;
+
+      http.Response userRes = await http.get(
+        Uri.parse('${Constants.uri}/api/'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-auth-token': token,
+        },
+      );
+
+      if (userRes.statusCode == 200) {
+        userProvider.setUser(userRes.body);
+        await prefs.setString('user-data', userRes.body);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("❌ Error refreshing user data: $e");
+      return false;
+    }
   }
 }

@@ -11,36 +11,69 @@ class EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3A3A3A), width: 1),
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Event Image
-            if (event.imageUrl != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Image.network(
-                    event.imageUrl!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildPlaceholderImage();
-                    },
+            Stack(
+              children: [
+                if (event.imageUrl != null)
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Image.network(
+                        event.imageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildPlaceholderImage();
+                        },
+                      ),
+                    ),
+                  )
+                else
+                  _buildPlaceholderImage(),
+
+                // Featured Badge
+                if (event.isFeatured)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'FEATURED',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              )
-            else
-              _buildPlaceholderImage(),
+              ],
+            ),
 
             // Event Content
             Padding(
@@ -48,38 +81,16 @@ class EventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title and Featured Badge
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          event.title,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (event.isFeatured)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'FEATURED',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
+                  // Title
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
 
                   const SizedBox(height: 8),
@@ -87,15 +98,15 @@ class EventCard extends StatelessWidget {
                   // Category
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                      horizontal: 12,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _getCategoryColor(event.category).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: _getCategoryColor(event.category),
-                        width: 1,
+                        width: 2,
                       ),
                     ),
                     child: Text(
@@ -103,7 +114,7 @@ class EventCard extends StatelessWidget {
                       style: TextStyle(
                         color: _getCategoryColor(event.category),
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -113,49 +124,56 @@ class EventCard extends StatelessWidget {
                   // Description
                   Text(
                     event.description,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
 
                   const SizedBox(height: 12),
 
-                  // Date and Location
+                  // Date
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.calendar_today,
                         size: 16,
-                        color: Colors.grey[600],
+                        color: Colors.grey,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           event.formattedDateRange,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey[600]),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
 
+                  // Location
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.location_on,
                         size: 16,
-                        color: Colors.grey[600],
+                        color: Colors.grey,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           event.location,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey[600]),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -163,7 +181,7 @@ class EventCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // Price and Registration Status
                   Row(
@@ -177,27 +195,27 @@ class EventCard extends StatelessWidget {
                             if (event.lowestPrice == event.highestPrice)
                               Text(
                                 '\$${event.lowestPrice.toStringAsFixed(0)}',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.titleMedium?.copyWith(
+                                style: const TextStyle(
+                                  color: Color(0xFFB8FF00),
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).primaryColor,
                                 ),
                               )
                             else
                               Text(
                                 '\$${event.lowestPrice.toStringAsFixed(0)} - \$${event.highestPrice.toStringAsFixed(0)}',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.titleMedium?.copyWith(
+                                style: const TextStyle(
+                                  color: Color(0xFFB8FF00),
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).primaryColor,
                                 ),
                               ),
                             Text(
                               'per participant',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.grey[600]),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
@@ -217,21 +235,21 @@ class EventCard extends StatelessWidget {
 
   Widget _buildPlaceholderImage() {
     return Container(
-      height: 180,
+      height: 200,
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      decoration: const BoxDecoration(
+        color: Color(0xFF3A3A3A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.event, size: 48, color: Colors.grey[600]),
+          const Icon(Icons.event, size: 48, color: Color(0xFFB8FF00)),
           const SizedBox(height: 8),
           Text(
             event.categoryDisplayName,
-            style: TextStyle(
-              color: Colors.grey[600],
+            style: const TextStyle(
+              color: Colors.grey,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -243,18 +261,18 @@ class EventCard extends StatelessWidget {
   Widget _buildRegistrationStatus() {
     if (!event.isRegistrationOpen) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.red[100],
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.red.withOpacity(0.5), width: 2),
         ),
         child: const Text(
           'Registration Closed',
           style: TextStyle(
             color: Colors.red,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
           ),
         ),
       );
@@ -262,36 +280,35 @@ class EventCard extends StatelessWidget {
 
     if (!event.hasAvailableSpots) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.orange[100],
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.orange),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange.withOpacity(0.5), width: 2),
         ),
         child: const Text(
           'Sold Out',
           style: TextStyle(
             color: Colors.orange,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
           ),
         ),
       );
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.green[100],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.green),
+        color: const Color(0xFFB8FF00),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: const Text(
         'Open',
         style: TextStyle(
-          color: Colors.green,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          color: Colors.black,
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

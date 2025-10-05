@@ -1,8 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:the_factory/services/auth_service.dart';
 
 class FactoryDrawer extends StatelessWidget {
   final void Function(String)? onOptionTap;
   const FactoryDrawer({Key? key, this.onOptionTap}) : super(key: key);
+
+  Future<void> _handleLogout(BuildContext context) async {
+    print("🔴 Logout button tapped"); // DEBUG
+
+    // Show confirmation dialog WITHOUT closing drawer first
+    final confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (dialogContext) => AlertDialog(
+            backgroundColor: const Color(0xFF2A2A2A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: const Text(
+              'Are you sure you want to logout?',
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  print("❌ Logout cancelled"); // DEBUG
+                  Navigator.pop(dialogContext, false);
+                },
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  print("✅ Logout confirmed"); // DEBUG
+                  Navigator.pop(dialogContext, true);
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFB8FF00).withOpacity(0.1),
+                ),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Color(0xFFB8FF00),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    print("🔵 Dialog result: $confirm"); // DEBUG
+
+    // Close drawer AFTER dialog
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+
+    // If confirmed, logout
+    if (confirm == true && context.mounted) {
+      print("🟢 Calling logout..."); // DEBUG
+      final authService = AuthService();
+      await authService.logout(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +92,7 @@ class FactoryDrawer extends StatelessWidget {
                     color: Color(0xFFB8FF00),
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
@@ -57,13 +129,18 @@ class FactoryDrawer extends StatelessWidget {
                 Navigator.pushNamed(context, '/store');
               },
             ),
+            const Divider(
+              color: Color(0xFF3A3A3A),
+              height: 32,
+              thickness: 1,
+              indent: 16,
+              endIndent: 16,
+            ),
             _DrawerOption(
               icon: Icons.logout_outlined,
               label: 'Logout',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/login');
-              },
+              onTap: () => _handleLogout(context),
+              isDestructive: true,
             ),
             const Spacer(),
             Padding(
@@ -87,21 +164,27 @@ class _DrawerOption extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isDestructive;
 
   const _DrawerOption({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.isDestructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final iconColor =
+        isDestructive ? Colors.red.shade400 : const Color(0xFFB8FF00);
+    final textColor = isDestructive ? Colors.red.shade400 : Colors.white;
+
     return ListTile(
-      leading: Icon(icon, color: const Color(0xFFB8FF00)),
+      leading: Icon(icon, color: iconColor),
       title: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: textColor,
           fontWeight: FontWeight.w500,
           fontSize: 16,
         ),
