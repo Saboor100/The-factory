@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'create_post_bottom_sheet.dart';
 import '../create_post_screen.dart';
 import '../home_screen.dart';
 
@@ -8,12 +7,13 @@ class CreatePostCard extends StatelessWidget {
   final String? avatarUrl;
   const CreatePostCard({Key? key, this.avatarUrl}) : super(key: key);
 
-  void _showCreatePostDialog(BuildContext context) async {
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CreatePostScreen(avatarUrl: avatarUrl),
+  void _navigateToCreatePost(BuildContext context) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreatePostScreen(avatarUrl: avatarUrl),
+        fullscreenDialog: true, // This makes it slide up from bottom
+      ),
     );
 
     if (result == true && context.mounted) {
@@ -26,7 +26,7 @@ class CreatePostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showCreatePostDialog(context),
+      onTap: () => _navigateToCreatePost(context),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -95,7 +95,6 @@ class CreatePostCard extends StatelessWidget {
       );
     }
 
-    // No avatar - show default icon
     return const CircleAvatar(
       radius: 20,
       backgroundColor: Color(0xFF3A3A3A),

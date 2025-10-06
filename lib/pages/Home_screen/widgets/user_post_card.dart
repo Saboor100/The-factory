@@ -32,14 +32,17 @@ class _UserPostCardState extends State<UserPostCard>
   late AnimationController _likeAnimationController;
   late Animation<double> _likeScaleAnimation;
   bool _isProcessing = false;
+  List<Map<String, dynamic>>? _cachedLikesPreview;
+  bool _likesPreviewLoaded = false;
 
-  // For multi-image support
-  int _currentImageIndex = 0;
+  // For multi-image support with ValueNotifier to prevent rebuilds
+  final ValueNotifier<int> _currentImageIndexNotifier = ValueNotifier<int>(0);
   final PageController _pageController = PageController();
 
   @override
   void initState() {
     super.initState();
+
     isLiked = widget.data['isLiked'] ?? false;
     likesCount = (widget.data['likes'] as List?)?.length ?? 0;
     commentsCount = (widget.data['comments'] as List?)?.length ?? 0;
@@ -60,18 +63,17 @@ class _UserPostCardState extends State<UserPostCard>
   void dispose() {
     _likeAnimationController.dispose();
     _pageController.dispose();
+    _currentImageIndexNotifier.dispose();
     super.dispose();
   }
 
   List<Map<String, dynamic>> _getImages() {
-    // Check for multiple images first
     if (widget.data['images'] != null && widget.data['images'] is List) {
       final imagesList = widget.data['images'] as List;
       if (imagesList.isNotEmpty) {
         return List<Map<String, dynamic>>.from(imagesList);
       }
     }
-    // Fallback to single image for backward compatibility
     if (widget.data['imageUrl'] != null) {
       return [
         {
@@ -107,6 +109,9 @@ class _UserPostCardState extends State<UserPostCard>
           isLiked = !isLiked;
           likesCount = isLiked ? likesCount + 1 : likesCount - 1;
         });
+      } else {
+        _likesPreviewLoaded = false;
+        _cachedLikesPreview = null;
       }
     } catch (e) {
       print('Error toggling like: $e');
@@ -441,9 +446,7 @@ class _UserPostCardState extends State<UserPostCard>
               controller: _pageController,
               itemCount: images.length,
               onPageChanged: (index) {
-                setState(() {
-                  _currentImageIndex = index;
-                });
+                _currentImageIndexNotifier.value = index;
               },
               itemBuilder: (context, index) {
                 return CachedNetworkImage(
@@ -503,27 +506,25 @@ class _UserPostCardState extends State<UserPostCard>
     return Positioned(
       top: 12,
       right: 12,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.7),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.photo_library, color: Colors.white, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              '${_currentImageIndex + 1}/$imageCount',
+      child: ValueListenableBuilder<int>(
+        valueListenable: _currentImageIndexNotifier,
+        builder: (context, currentIndex, child) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '${currentIndex + 1}/$imageCount',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -533,23 +534,28 @@ class _UserPostCardState extends State<UserPostCard>
       bottom: 12,
       left: 0,
       right: 0,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(
-          imageCount,
-          (index) => Container(
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color:
-                  _currentImageIndex == index
-                      ? const Color(0xFFB8FF00)
-                      : Colors.white.withOpacity(0.5),
+      child: ValueListenableBuilder<int>(
+        valueListenable: _currentImageIndexNotifier,
+        builder: (context, currentIndex, child) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              imageCount,
+              (index) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color:
+                      currentIndex == index
+                          ? const Color(0xFFB8FF00)
+                          : Colors.white.withOpacity(0.5),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -749,11 +755,18 @@ class _UserPostCardState extends State<UserPostCard>
   }
 
   Future<List<Map<String, dynamic>>> _fetchLikesPreview() async {
+    if (_likesPreviewLoaded && _cachedLikesPreview != null) {
+      return _cachedLikesPreview!;
+    }
+
     try {
       final result = await _feedService.getLikes(widget.data['_id']);
       if (result['success'] == true) {
         final data = result['data'] as List;
-        return data.take(3).map((e) => e as Map<String, dynamic>).toList();
+        _cachedLikesPreview =
+            data.take(3).map((e) => e as Map<String, dynamic>).toList();
+        _likesPreviewLoaded = true;
+        return _cachedLikesPreview!;
       }
     } catch (e) {
       print('Error fetching likes preview: $e');
@@ -799,9 +812,6 @@ class _UserPostCardState extends State<UserPostCard>
     }
   }
 }
-
-// Keep your existing LikesBottomSheet and CommentsBottomSheet classes here...
-// (They remain unchanged - I'm omitting them to save space, but keep them as-is)
 
 // Likes Bottom Sheet Widget
 class LikesBottomSheet extends StatefulWidget {
