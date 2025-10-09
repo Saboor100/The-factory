@@ -142,19 +142,6 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const UploadVideoScreen(),
-                ),
-              ).then((_) => _refreshVideos());
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
