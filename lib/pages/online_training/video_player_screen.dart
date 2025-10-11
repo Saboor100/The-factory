@@ -82,36 +82,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         print('Stream URL response: $response');
 
         if (response is Map) {
-          if (response['streamUrl'] != null &&
-              response['streamUrl'].toString().isNotEmpty) {
+          if (response['streamUrl'] != null) {
             _urlsToTry.add(response['streamUrl']);
           }
 
           if (response['alternativeUrls'] != null) {
             final alternatives = response['alternativeUrls'] as Map;
-            final compatibilityOrder = [
-              'compatible',
-              'ultraLow',
-              'mobile',
-              'simple',
-              'minimal',
-              'direct',
-              'httpFallback',
+
+            // Priority order: HD -> SD -> Mobile -> Ultra Low
+            final qualityOrder = [
+              'hd1080', // Try 1080p first
+              'hd720', // Then 720p
+              'sd480', // Then 480p
+              'mobile360', // Then 360p
+              'ultraLow', // Last resort
             ];
 
-            for (final key in compatibilityOrder) {
+            for (final key in qualityOrder) {
               final url = alternatives[key];
-              if (url != null &&
-                  url.toString().isNotEmpty &&
-                  !_urlsToTry.contains(url)) {
-                _urlsToTry.add(url.toString());
-              }
-            }
-
-            for (final url in alternatives.values) {
-              if (url != null &&
-                  url.toString().isNotEmpty &&
-                  !_urlsToTry.contains(url)) {
+              if (url != null && !_urlsToTry.contains(url)) {
                 _urlsToTry.add(url.toString());
               }
             }
@@ -424,7 +413,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         children: [
           // Video Player with Chewie
           Expanded(
-            child: Center(child: Chewie(controller: _chewieController!)),
+            child: Container(
+              color: Colors.black,
+              child: Center(
+                child:
+                    _videoPlayerController!.value.isInitialized
+                        ? AspectRatio(
+                          aspectRatio:
+                              _videoPlayerController!.value.aspectRatio,
+                          child: Chewie(controller: _chewieController!),
+                        )
+                        : const CircularProgressIndicator(
+                          color: Color(0xFFB8FF00),
+                        ),
+              ),
+            ),
           ),
 
           // Bottom action buttons
