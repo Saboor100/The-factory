@@ -116,6 +116,62 @@ class VideoApiService {
     }
   }
 
+  // Add this method to your VideoApiService class
+
+  // Replace the existing deleteComment method in video_api_service.dart with this:
+
+  // Replace the deleteComment method in video_api_service.dart
+  static Future<Map<String, dynamic>> deleteComment(
+    String videoId,
+    String commentId,
+  ) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Authentication required');
+
+      print('Deleting comment: $commentId from video: $videoId'); // Debug
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/videos/$videoId/comments/$commentId'),
+        headers: {'Content-Type': 'application/json', 'x-auth-token': token},
+      );
+
+      print('Delete comment response status: ${response.statusCode}');
+      print('Delete comment response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        // Try to parse JSON, if it fails, return success anyway
+        try {
+          final data = json.decode(response.body);
+          return {
+            'success': true,
+            'message': data['message'] ?? 'Comment deleted successfully',
+          };
+        } catch (e) {
+          // Response might be empty for 204 or not JSON
+          return {'success': true, 'message': 'Comment deleted successfully'};
+        }
+      } else {
+        // Try to parse error message
+        try {
+          final error = json.decode(response.body);
+          return {
+            'success': false,
+            'message': error['message'] ?? 'Failed to delete comment',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Failed to delete comment: ${response.statusCode}',
+          };
+        }
+      }
+    } catch (e) {
+      print('Delete comment error: $e');
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
   // UPDATED: Enhanced mobile compatibility method
   static Future<String> getCompatibleStreamingUrl(String videoId) async {
     try {

@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'video_player_screen.dart';
 import 'package:the_factory/services/video_api_service.dart';
+import 'package:provider/provider.dart';
+import 'package:the_factory/providers/user_provider.dart';
 
 class VideoDetailScreen extends StatefulWidget {
   final String videoId;
@@ -50,12 +52,35 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
 
   void _initializeVideoState() {
     if (video != null) {
-      // Assuming your API returns integer counts directly
       likesCount = video!['likes'] ?? 0;
       dislikesCount = video!['dislikes'] ?? 0;
 
-      // Note: You'll need to check if current user has liked/disliked
-      // This would require the user ID from your auth system
+      // Get current user ID from provider
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final currentUserId = userProvider.user.id;
+
+      print('Initializing video state for user: $currentUserId'); // Debug
+      print('Video likes data: ${video!['likedBy']}'); // Debug
+      print('Video dislikes data: ${video!['dislikedBy']}'); // Debug
+
+      // Check if current user has liked/disliked this video
+      if (video!['likedBy'] != null) {
+        if (video!['likedBy'] is List) {
+          isLiked = (video!['likedBy'] as List).any(
+            (id) => id.toString() == currentUserId,
+          );
+        }
+      }
+
+      if (video!['dislikedBy'] != null) {
+        if (video!['dislikedBy'] is List) {
+          isDisliked = (video!['dislikedBy'] as List).any(
+            (id) => id.toString() == currentUserId,
+          );
+        }
+      }
+
+      print('Is liked: $isLiked, Is disliked: $isDisliked'); // Debug
     }
   }
 
@@ -121,6 +146,13 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     final commentText = _commentController.text.trim();
     if (commentText.isEmpty) return;
 
+    // Prevent multiple submissions
+    if (isLoadingComments) return;
+
+    setState(() {
+      isLoadingComments = true;
+    });
+
     try {
       final response = await VideoApiService.addComment(
         widget.videoId,
@@ -128,14 +160,89 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
       );
       if (response['success']) {
         _commentController.clear();
-        await _loadComments(); // Reload comments
+        await _loadComments();
         _showSuccessSnackBar('Comment added successfully!');
       } else {
         _showErrorSnackBar('Failed to add comment');
       }
     } catch (e) {
       _showErrorSnackBar('Failed to add comment: $e');
+    } finally {
+      setState(() {
+        isLoadingComments = false;
+      });
     }
+  }
+
+  Future<void> _deleteComment(String commentId) async {
+    try {
+      final response = await VideoApiService.deleteComment(
+        widget.videoId,
+        commentId,
+      );
+      if (response['success'] == true) {
+        await _loadComments();
+        _showSuccessSnackBar('Comment deleted successfully!');
+      } else {
+        _showErrorSnackBar(response['message'] ?? 'Failed to delete comment');
+      }
+    } catch (e) {
+      print('Delete comment error: $e');
+      _showErrorSnackBar('Failed to delete comment');
+    }
+  }
+
+  void _showDeleteCommentDialog(String commentId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Delete Comment',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to delete this comment?',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white54),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteComment(commentId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Delete',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _likeVideo() async {
@@ -186,15 +293,28 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: const Color(0xFFB8FF00),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -204,13 +324,17 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF2A2A2A),
+          backgroundColor: const Color(0xFF1E1E1E),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           title: const Text(
             'Purchase Video',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -219,31 +343,52 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
               Text(
                 video!['title'],
                 style: const TextStyle(
-                  color: Color(0xFFB8FF00),
+                  color: Colors.white,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Price: \$${video!['price']?.toStringAsFixed(2) ?? '0.00'}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A2A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Price',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    Text(
+                      '\$${video!['price']?.toStringAsFixed(2) ?? '0.00'}',
+                      style: const TextStyle(
+                        color: Color(0xFFB8FF00),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               const Text(
                 'Once purchased, you\'ll have lifetime access to this video.',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
+                style: TextStyle(color: Colors.white60, fontSize: 14),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white54),
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -257,12 +402,17 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                 backgroundColor: const Color(0xFFB8FF00),
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                elevation: 0,
               ),
               child: const Text(
                 'Purchase',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
             ),
           ],
@@ -276,17 +426,18 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     required String label,
     required bool isActive,
     required VoidCallback onTap,
+    Color? activeColor,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFB8FF00) : const Color(0xFF2A2A2A),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive ? const Color(0xFFB8FF00) : const Color(0xFF404040),
-          ),
+          color:
+              isActive
+                  ? (activeColor ?? const Color(0xFFB8FF00))
+                  : const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -294,15 +445,15 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
             Icon(
               icon,
               color: isActive ? Colors.black : Colors.white70,
-              size: 16,
+              size: 18,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color: isActive ? Colors.black : Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -317,39 +468,66 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
         comment['user']?['name'] ??
         'Anonymous';
 
+    // Try multiple possible avatar URL paths
     final String userAvatar =
         comment['user']?['profile']?['avatar']?['url'] ??
-        'https://i.pravatar.cc/150?u=${comment['user']?['_id']}';
+        comment['user']?['avatar']?['url'] ??
+        comment['user']?['profilePicture'] ??
+        '';
+
+    print('Comment user avatar: $userAvatar'); // Debug print
+
     final String commentText = comment['comment'] ?? '';
     final String timeAgo = _formatDate(comment['createdAt']);
+    final String commentId = comment['_id'] ?? '';
+    final String commentUserId = comment['user']?['_id'] ?? '';
+
+    // Get current user ID from provider
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final String currentUserId = userProvider.user.id;
+    final bool isOwnComment = commentUserId == currentUserId;
+
+    print(
+      'Is own comment: $isOwnComment (current: $currentUserId, comment: $commentUserId)',
+    ); // Debug
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: Colors.grey[800],
-            child: ClipOval(
-              child: CachedNetworkImage(
-                imageUrl: userAvatar,
-                fit: BoxFit.cover,
-                width: 36,
-                height: 36,
-                placeholder:
-                    (context, url) =>
-                        const CircularProgressIndicator(strokeWidth: 1),
-                errorWidget:
-                    (context, url, error) =>
-                        const Icon(Icons.person, color: Colors.white54),
-              ),
-            ),
+            backgroundColor: const Color(0xFF2A2A2A),
+            child:
+                userAvatar.isNotEmpty
+                    ? ClipOval(
+                      child: CachedNetworkImage(
+                        imageUrl: userAvatar,
+                        fit: BoxFit.cover,
+                        width: 36,
+                        height: 36,
+                        placeholder:
+                            (context, url) => const CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFB8FF00),
+                            ),
+                        errorWidget: (context, url, error) {
+                          print('Avatar load error: $error'); // Debug
+                          return const Icon(
+                            Icons.person,
+                            color: Colors.white54,
+                            size: 18,
+                          );
+                        },
+                      ),
+                    )
+                    : const Icon(Icons.person, color: Colors.white54, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -358,30 +536,51 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      userName,
-                      style: const TextStyle(
-                        color: Color(0xFFB8FF00),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              userName,
+                              style: const TextStyle(
+                                color: Color(0xFFB8FF00),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '• $timeAgo',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      timeAgo,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
+                    if (isOwnComment)
+                      GestureDetector(
+                        onTap: () => _showDeleteCommentDialog(commentId),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          child: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   commentText,
                   style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
+                    color: Colors.white,
+                    fontSize: 14,
                     height: 1.4,
                   ),
                 ),
@@ -396,43 +595,68 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
   Widget _buildDescriptionBox() {
     final description = video!['description'] ?? 'No description available';
     final shouldShowReadMore = description.length > 150;
+    final category = video!['category'] ?? 'Training';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Description',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A2A),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  category.toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xFFB8FF00),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'Description',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           AnimatedCrossFade(
             firstChild: Text(
               description.length > 150
                   ? '${description.substring(0, 150)}...'
                   : description,
               style: const TextStyle(
-                color: Colors.white70,
+                color: Colors.white,
                 fontSize: 14,
-                height: 1.4,
+                height: 1.5,
               ),
             ),
             secondChild: Text(
               description,
               style: const TextStyle(
-                color: Colors.white70,
+                color: Colors.white,
                 fontSize: 14,
-                height: 1.4,
+                height: 1.5,
               ),
             ),
             crossFadeState:
@@ -442,7 +666,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
             duration: const Duration(milliseconds: 200),
           ),
           if (shouldShowReadMore) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             GestureDetector(
               onTap: () {
                 setState(() {
@@ -453,15 +677,14 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                 isDescriptionExpanded ? 'Show less' : 'Show more',
                 style: const TextStyle(
                   color: Color(0xFFB8FF00),
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          // Tags
-          if (video!['tags'] != null && video!['tags'].isNotEmpty)
+          if (video!['tags'] != null && video!['tags'].isNotEmpty) ...[
+            const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -469,24 +692,26 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                 video!['tags'].map(
                   (tag) => Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                      horizontal: 12,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF404040),
-                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      tag,
+                      '#$tag',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -509,15 +734,15 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
       final difference = now.difference(date);
 
       if (difference.inDays > 365) {
-        return '${(difference.inDays / 365).floor()} year${(difference.inDays / 365).floor() == 1 ? '' : 's'} ago';
+        return '${(difference.inDays / 365).floor()}y ago';
       } else if (difference.inDays > 30) {
-        return '${(difference.inDays / 30).floor()} month${(difference.inDays / 30).floor() == 1 ? '' : 's'} ago';
+        return '${(difference.inDays / 30).floor()}mo ago';
       } else if (difference.inDays > 0) {
-        return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+        return '${difference.inDays}d ago';
       } else if (difference.inHours > 0) {
-        return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+        return '${difference.inHours}h ago';
       } else if (difference.inMinutes > 0) {
-        return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+        return '${difference.inMinutes}m ago';
       } else {
         return 'Just now';
       }
@@ -611,6 +836,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFB8FF00),
                   foregroundColor: Colors.black,
+                  elevation: 0,
                 ),
                 child: const Text('Retry'),
               ),
@@ -624,14 +850,6 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
 
     final bool isFree = !(video!['isPremium'] ?? false);
     final String thumbnailUrl = video!['thumbnailUrl'] ?? '';
-    final String instructorName =
-        video!['uploadedBy']?['profile']?['fullName'] ??
-        video!['uploadedBy']?['name'] ??
-        'Unknown';
-
-    final String instructorAvatar =
-        video!['uploadedBy']?['profile']?['avatar']?['url'] ??
-        'https://i.pravatar.cc/150?u=${video!['uploadedBy']?['_id']}';
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -659,11 +877,11 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          color: const Color(0xFF2A2A2A),
+                          color: const Color(0xFF1E1E1E),
                           child: const Center(
                             child: Icon(
                               Icons.video_library,
-                              color: Colors.white54,
+                              color: Colors.white30,
                               size: 64,
                             ),
                           ),
@@ -676,7 +894,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.black.withOpacity(0.3),
+                          Colors.black.withOpacity(0.2),
                           Colors.black.withOpacity(0.8),
                         ],
                         begin: Alignment.topCenter,
@@ -690,15 +908,16 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                     child: GestureDetector(
                       onTap: _watchVideo,
                       child: Container(
-                        padding: const EdgeInsets.all(16),
+                        width: 70,
+                        height: 70,
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
+                          color: Colors.white.withOpacity(0.95),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 48,
+                          Icons.play_arrow_rounded,
+                          color: Colors.black,
+                          size: 40,
                         ),
                       ),
                     ),
@@ -717,13 +936,6 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFD700),
                           borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFFD700).withOpacity(0.3),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -754,7 +966,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
           // Video Details
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -763,91 +975,63 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                     video!['title'] ?? 'Untitled Video',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Video Stats & Actions
+                  // Video Stats Row
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Colors.grey[800],
-                        child: ClipOval(
-                          child: CachedNetworkImage(
-                            imageUrl: instructorAvatar,
-                            fit: BoxFit.cover,
-                            width: 44,
-                            height: 44,
-                            placeholder:
-                                (context, url) =>
-                                    const CircularProgressIndicator(
-                                      strokeWidth: 1,
-                                    ),
-                            errorWidget:
-                                (context, url, error) => const Icon(
-                                  Icons.person,
-                                  color: Colors.white54,
-                                ),
-                          ),
+                      const Icon(
+                        Icons.visibility_outlined,
+                        color: Colors.white54,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${video!['viewCount'] ?? 0} views',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              instructorName,
-                              style: const TextStyle(
-                                color: Color(0xFFB8FF00),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              '${video!['views'] ?? 0} views • ${_formatDate(video!['createdAt'])}',
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                      Text(
+                        '• ${_formatDate(video!['createdAt'])}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Row(
-                        children: [
-                          _buildActionButton(
-                            icon:
-                                isLiked
-                                    ? Icons.thumb_up
-                                    : Icons.thumb_up_outlined,
-                            label: likesCount.toString(),
-                            isActive: isLiked,
-                            onTap: _likeVideo,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildActionButton(
-                            icon:
-                                isDisliked
-                                    ? Icons.thumb_down
-                                    : Icons.thumb_down_outlined,
-                            label: dislikesCount.toString(),
-                            isActive: isDisliked,
-                            onTap: _dislikeVideo,
-                          ),
-                        ],
+                      const Spacer(),
+                      _buildActionButton(
+                        icon:
+                            isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                        label: likesCount.toString(),
+                        isActive: isLiked,
+                        onTap: _likeVideo,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildActionButton(
+                        icon:
+                            isDisliked
+                                ? Icons.thumb_down
+                                : Icons.thumb_down_outlined,
+                        label: dislikesCount.toString(),
+                        isActive: isDisliked,
+                        onTap: _dislikeVideo,
+                        activeColor: const Color(0xFF666666),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // Enhanced Description Box
+                  // Description Box
                   _buildDescriptionBox(),
 
                   const SizedBox(height: 24),
@@ -860,15 +1044,26 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        '(${comments.length})',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 16,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${comments.length}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -876,23 +1071,28 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Enhanced Add Comment Section
+                  // Add Comment Section
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF404040)),
+                      color: const Color(0xFF1E1E1E),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TextField(
                           controller: _commentController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                          decoration: InputDecoration(
                             hintText: 'Add a comment...',
-                            hintStyle: TextStyle(color: Colors.white54),
+                            hintStyle: TextStyle(
+                              color: Colors.white.withOpacity(0.4),
+                              fontSize: 14,
+                            ),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
                           ),
@@ -908,27 +1108,49 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                               },
                               child: const Text(
                                 'Cancel',
-                                style: TextStyle(color: Colors.white54),
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
-                              onPressed: _postComment,
+                              onPressed:
+                                  isLoadingComments ? null : _postComment,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFB8FF00),
                                 foregroundColor: Colors.black,
+                                disabledBackgroundColor: const Color(
+                                  0xFF2A2A2A,
+                                ),
+                                disabledForegroundColor: Colors.white38,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
+                                  horizontal: 20,
+                                  vertical: 10,
                                 ),
+                                elevation: 0,
                               ),
-                              child: const Text(
-                                'Comment',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
+                              child:
+                                  isLoadingComments
+                                      ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white38,
+                                        ),
+                                      )
+                                      : const Text(
+                                        'Comment',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
                             ),
                           ],
                         ),

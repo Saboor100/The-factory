@@ -71,10 +71,8 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
       );
 
       if (response['success']) {
-        final List<dynamic> newVideos =
-            response['data']; // ✅ It's already a List
-        final pagination =
-            response['pagination'] ?? {}; // ✅ Moved out of `data`
+        final List<dynamic> newVideos = response['data'];
+        final pagination = response['pagination'] ?? {};
 
         setState(() {
           if (refresh) {
@@ -306,10 +304,7 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
   Widget _buildVideoCard(Map<String, dynamic> video) {
     final bool isFree = !(video['isPremium'] ?? false);
     final String thumbnailUrl = video['thumbnailUrl'] ?? '';
-    final String instructorName = video['uploader']?['name'] ?? 'Unknown';
-    final String instructorAvatar =
-        video['uploader']?['profilePicture'] ??
-        'https://i.pravatar.cc/150?u=${video['uploader']?['_id']}';
+    final String category = video['category'] ?? 'Training';
 
     return GestureDetector(
       onTap: () {
@@ -323,21 +318,31 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 18),
+        margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
-          color: const Color(0xFF181818),
-          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [const Color(0xFF1A1A1A), const Color(0xFF0F0F0F)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isFree ? const Color(0xFF404040) : const Color(0xFFFFD700),
-            width: isFree ? 1.2 : 2.5,
+            color: isFree ? const Color(0xFF2A2A2A) : const Color(0xFFFFD700),
+            width: isFree ? 1.5 : 2,
           ),
           boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 12,
+              spreadRadius: 0,
+              offset: const Offset(0, 4),
+            ),
             if (!isFree)
               BoxShadow(
-                color: const Color(0xFFFFD700).withOpacity(0.18),
-                blurRadius: 18,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
+                color: const Color(0xFFFFD700).withOpacity(0.25),
+                blurRadius: 20,
+                spreadRadius: 0,
+                offset: const Offset(0, 6),
               ),
           ],
         ),
@@ -349,91 +354,135 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
+                    top: Radius.circular(20),
                   ),
                   child:
                       thumbnailUrl.isNotEmpty
                           ? Image.network(
                             thumbnailUrl,
-                            height: 170,
+                            height: 180,
                             width: double.infinity,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
-                                height: 170,
+                                height: 180,
                                 width: double.infinity,
-                                color: const Color(0xFF2A2A2A),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      const Color(0xFF2A2A2A),
+                                      const Color(0xFF1A1A1A),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
                                 child: const Center(
                                   child: Icon(
-                                    Icons.video_library,
-                                    color: Colors.white54,
-                                    size: 48,
+                                    Icons.play_circle_outline,
+                                    color: Colors.white30,
+                                    size: 64,
                                   ),
                                 ),
                               );
                             },
                           )
                           : Container(
-                            height: 170,
+                            height: 180,
                             width: double.infinity,
-                            color: const Color(0xFF2A2A2A),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF2A2A2A),
+                                  const Color(0xFF1A1A1A),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
                             child: const Center(
                               child: Icon(
-                                Icons.video_library,
-                                color: Colors.white54,
-                                size: 48,
+                                Icons.play_circle_outline,
+                                color: Colors.white30,
+                                size: 64,
                               ),
                             ),
                           ),
                 ),
+                // Gradient overlay
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
+                        top: Radius.circular(20),
                       ),
                       gradient: LinearGradient(
                         colors: [
-                          Colors.black.withOpacity(0.05),
-                          Colors.black.withOpacity(0.25),
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
+                        stops: const [0.5, 1.0],
                       ),
                     ),
                   ),
                 ),
-                // Play icon
-                const Positioned.fill(
+                // Play icon with glow
+                Positioned.fill(
                   child: Center(
-                    child: Icon(
-                      Icons.play_circle_fill_rounded,
-                      color: Colors.white,
-                      size: 54,
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFB8FF00).withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Color(0xFFB8FF00),
+                        size: 48,
+                      ),
                     ),
                   ),
                 ),
                 // Duration badge
                 if (video['duration'] != null)
                   Positioned(
-                    bottom: 10,
+                    bottom: 12,
                     right: 12,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        _formatDuration(video['duration']),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                        color: Colors.black.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.1),
+                          width: 1,
                         ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.access_time,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatDuration(video['duration']),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -443,29 +492,39 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
                   left: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+                      horizontal: 12,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color:
-                          isFree
-                              ? const Color(0xFFB8FF00)
-                              : const Color(0xFFFFD700),
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow:
-                          isFree
-                              ? []
-                              : [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFFFFD700,
-                                  ).withOpacity(0.25),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                ),
-                              ],
+                      gradient: LinearGradient(
+                        colors:
+                            isFree
+                                ? [
+                                  const Color(0xFFB8FF00),
+                                  const Color(0xFF9FE600),
+                                ]
+                                : [
+                                  const Color(0xFFFFD700),
+                                  const Color(0xFFFFA500),
+                                ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isFree
+                                  ? const Color(0xFFB8FF00)
+                                  : const Color(0xFFFFD700))
+                              .withOpacity(0.4),
+                          blurRadius: 12,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         if (!isFree)
                           const Icon(
@@ -478,8 +537,9 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
                           isFree ? 'FREE' : 'PREMIUM',
                           style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
                           ),
                         ),
                       ],
@@ -514,86 +574,142 @@ class _OnlineTrainingScreenState extends State<OnlineTrainingScreen> {
             ),
             // Video Info
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Category chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFB8FF00).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: const Color(0xFFB8FF00).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      category.toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFFB8FF00),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     video['title'] ?? 'Untitled Video',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 17,
                       fontWeight: FontWeight.w700,
+                      height: 1.3,
+                      letterSpacing: -0.3,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
                     video['description'] ?? 'No description available',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 14),
+                  // Divider
+                  Container(
+                    height: 1,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.white.withOpacity(0.1),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
+                  // View count and likes with better styling
                   Row(
                     children: [
-                      CircleAvatar(
-                        backgroundImage: NetworkImage(instructorAvatar),
-                        radius: 13,
-                        onBackgroundImageError: (exception, stackTrace) {},
-                        child:
-                            instructorAvatar.isEmpty
-                                ? const Icon(
-                                  Icons.person,
-                                  size: 16,
-                                  color: Colors.white54,
-                                )
-                                : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          instructorName,
-                          style: const TextStyle(
-                            color: Color(0xFFB8FF00),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.visibility_outlined,
+                              color: Color(0xFFB8FF00),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${video['viewCount'] ?? 0}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      // View count and likes
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.visibility,
-                            color: Colors.white54,
-                            size: 14,
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${video['viewCount'] ?? 0}', // ✅ Fixed: use 'viewCount' instead of 'views'
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.thumb_up_outlined,
+                              color: Color(0xFFB8FF00),
+                              size: 16,
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Icon(
-                            Icons.thumb_up,
-                            color: Colors.white54,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${video['likes'] ?? 0}', // ✅ Fixed: removed .length since likes is an int
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
+                            const SizedBox(width: 6),
+                            Text(
+                              '${video['likes'] ?? 0}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
