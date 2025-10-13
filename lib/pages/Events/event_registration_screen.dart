@@ -1,8 +1,12 @@
 // lib/pages/Events/event_registration_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../models/event_model.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../services/payment_service.dart';
 import 'ticket_viewer_screen.dart';
 
 class EventRegistrationScreen extends StatefulWidget {
@@ -38,6 +42,9 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
   String? _selectedTicketType;
   TicketType? _selectedTicket;
   bool _isSubmitting = false;
+
+  // CHANGE 1: Use a constant for base URL that matches PaymentService
+  static const String baseUrl = 'http://192.168.100.16:3000/api';
 
   @override
   void dispose() {
@@ -387,7 +394,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                 ),
               ),
 
-              // Register Button
+              // Register Button (with Payment)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -400,7 +407,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                 child: ElevatedButton(
                   onPressed:
                       (_selectedTicket != null && !_isSubmitting)
-                          ? _submitRegistration
+                          ? _submitRegistrationAndPay
                           : null,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -426,19 +433,26 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                               ),
                               SizedBox(width: 12),
                               Text(
-                                'Registering...',
+                                'Processing...',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ],
                           )
-                          : Text(
-                            _selectedTicket != null
-                                ? 'Register for \$${_calculateFinalPrice(registrationProvider).toStringAsFixed(2)}'
-                                : 'Select a ticket type to continue',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.payment, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                _selectedTicket != null
+                                    ? 'Pay \$${_calculateFinalPrice(registrationProvider).toStringAsFixed(2)} - Register'
+                                    : 'Select a ticket type to continue',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                 ),
               ),
@@ -447,6 +461,187 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         },
       ),
     );
+  }
+
+  // CHANGE 2: Improved registration and payment flow with proper error handling
+  Future<void> _submitRegistrationAndPay() async {
+    if (!_formKey.currentState!.validate() || _selectedTicket == null) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = userProvider.user.id;
+      final token = userProvider.user.token;
+
+      final finalPrice = _calculateFinalPrice(
+        context.read<RegistrationProvider>(),
+      );
+
+      // Step 1: Process Stripe payment first
+      print('💳 Processing Stripe payment for \$$finalPrice...');
+      final paymentSuccess = await PaymentService.processEventPayment(
+        eventId: widget.event.id,
+        amount: finalPrice,
+        eventName: widget.event.title,
+        userId: userId,
+        token: token,
+      );
+
+      if (!mounted) return;
+
+      if (!paymentSuccess) {
+        // Payment failed or cancelled
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment failed or cancelled'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      print('✅ Payment successful, creating registration...');
+
+      // Step 2: Create registration in database
+      final registrationData = RegistrationData(
+        athleteFirstName: _athleteFirstNameController.text.trim(),
+        athleteLastName: _athleteLastNameController.text.trim(),
+        parentLastName: _parentLastNameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        address: Address(
+          street: _streetController.text.trim(),
+          city: _cityController.text.trim(),
+          state: _stateController.text.trim(),
+          zipCode: _zipCodeController.text.trim(),
+        ),
+        usaLaxNumber: _usaLaxNumberController.text.trim(),
+        graduationYear: int.parse(_graduationYearController.text.trim()),
+        ticketType: _selectedTicketType!,
+        discountCode:
+            _discountCodeController.text.isNotEmpty
+                ? _discountCodeController.text.trim()
+                : null,
+      );
+
+      final registrationSuccess = await context
+          .read<RegistrationProvider>()
+          .registerForEvent(
+            eventId: widget.event.id,
+            registrationData: registrationData,
+          );
+
+      if (!registrationSuccess) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Payment successful but registration failed. Please contact support.',
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      print('✅ Registration created, marking as paid...');
+
+      // Step 3: Mark registration as paid
+      final registrationResponse =
+          context.read<RegistrationProvider>().registrationResponse;
+
+      if (registrationResponse != null) {
+        // CHANGE 3: Add timeout and better error handling
+        final paymentMarked = await _markRegistrationAsPaid(
+          registrationResponse.registrationId,
+          finalPrice,
+          token,
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            print('⚠️ Payment marking timed out');
+            return false;
+          },
+        );
+
+        if (!paymentMarked) {
+          print('⚠️ Warning: Failed to mark registration as paid');
+          // Still show success to user since payment and registration worked
+        }
+
+        // Small delay to ensure everything is saved
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        if (mounted) {
+          _showRegistrationSuccess();
+        }
+      }
+    } catch (e) {
+      print('❌ Registration error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An error occurred: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  // CHANGE 4: Return bool and use consistent base URL
+  Future<bool> _markRegistrationAsPaid(
+    String registrationId,
+    double amount,
+    String token,
+  ) async {
+    try {
+      print(
+        '📝 Marking registration $registrationId as paid with amount: \$$amount',
+      );
+
+      // Use the same base URL as PaymentService
+      final response = await http.post(
+        Uri.parse('$baseUrl/events/registrations/$registrationId/payment'),
+        headers: {'Content-Type': 'application/json', 'x-auth-token': token},
+        body: json.encode({
+          'paidAmount': amount,
+          'paymentMethod': 'stripe',
+          'paymentTransactionId':
+              'stripe_${DateTime.now().millisecondsSinceEpoch}',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Registration marked as paid successfully');
+        return true;
+      } else {
+        print('⚠️ Failed to mark registration as paid: ${response.statusCode}');
+        print('Response body: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error marking registration as paid: $e');
+      return false;
+    }
   }
 
   Widget _buildSectionTitle(String title) {
@@ -662,69 +857,6 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
     );
   }
 
-  void _submitRegistration() async {
-    if (!_formKey.currentState!.validate() || _selectedTicket == null) {
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      final registrationData = RegistrationData(
-        athleteFirstName: _athleteFirstNameController.text.trim(),
-        athleteLastName: _athleteLastNameController.text.trim(),
-        parentLastName: _parentLastNameController.text.trim(),
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
-        address: Address(
-          street: _streetController.text.trim(),
-          city: _cityController.text.trim(),
-          state: _stateController.text.trim(),
-          zipCode: _zipCodeController.text.trim(),
-        ),
-        usaLaxNumber: _usaLaxNumberController.text.trim(),
-        graduationYear: int.parse(_graduationYearController.text.trim()),
-        ticketType: _selectedTicketType!,
-        discountCode:
-            _discountCodeController.text.isNotEmpty
-                ? _discountCodeController.text.trim()
-                : null,
-      );
-
-      final success = await context
-          .read<RegistrationProvider>()
-          .registerForEvent(
-            eventId: widget.event.id,
-            registrationData: registrationData,
-          );
-
-      if (success) {
-        if (mounted) {
-          _showRegistrationSuccess();
-        }
-      } else {
-        if (mounted) {
-          _showRegistrationError(
-            context.read<RegistrationProvider>().registrationError ??
-                'Registration failed. Please try again.',
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        _showRegistrationError('An error occurred: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
-  }
-
   void _showRegistrationSuccess() {
     final registrationResponse =
         context.read<RegistrationProvider>().registrationResponse!;
@@ -738,321 +870,94 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            insetPadding: const EdgeInsets.all(20),
-            child: Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
-                maxWidth: MediaQuery.of(context).size.width - 40,
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title Row
-                    Row(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.check_circle,
+                    color: Color(0xFFB8FF00),
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Registration Successful!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Payment completed and registration confirmed',
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A1A),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
                       children: [
-                        const Icon(
-                          Icons.check_circle,
-                          color: Color(0xFFB8FF00),
-                          size: 28,
+                        const Text(
+                          'Confirmation Number',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: const Text(
-                            'Registration Successful!',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        const SizedBox(height: 4),
+                        SelectableText(
+                          registrationResponse.confirmationNumber,
+                          style: const TextStyle(
+                            color: Color(0xFFB8FF00),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
                           ),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 16),
-
-                    // Success Message
-                    const Text(
-                      'Your registration has been confirmed.',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Confirmation Details
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF3A3A3A)),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Close dialog
+                        Navigator.of(context).pop(); // Go back to event details
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:
+                                (context) => TicketViewerScreen(
+                                  registrationId:
+                                      registrationResponse.registrationId,
+                                  confirmationNumber:
+                                      registrationResponse.confirmationNumber,
+                                ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFB8FF00),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Confirmation Number:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          SelectableText(
-                            registrationResponse.confirmationNumber,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFFB8FF00),
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Event: ${registrationResponse.event.title}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Participant: ${registrationResponse.participant.name}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Total: \${registrationResponse.pricing.finalPrice.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Payment Status Message
-                    if (registrationResponse.paymentRequired)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.orange, width: 1),
-                        ),
-                        child: const Text(
-                          'Please proceed with payment to complete your registration.',
-                          style: TextStyle(
-                            color: Colors.orange,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB8FF00).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFFB8FF00),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Text(
-                          'Your registration is complete!',
-                          style: TextStyle(
-                            color: Color(0xFFB8FF00),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(height: 24),
-
-                    // Action Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          if (registrationResponse.paymentRequired) {
-                            _proceedToPayment(registrationResponse);
-                          } else {
-                            Navigator.of(context).pop();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => TicketViewerScreen(
-                                      registrationId:
-                                          registrationResponse.registrationId,
-                                      confirmationNumber:
-                                          registrationResponse
-                                              .confirmationNumber,
-                                    ),
-                              ),
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFB8FF00),
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Text(
-                          registrationResponse.paymentRequired
-                              ? 'Proceed to Payment'
-                              : 'View Ticket',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                      child: const Text(
+                        'View Ticket',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
     );
-  }
-
-  void _showRegistrationError(String message) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: const Color(0xFF2A2A2A),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.error, color: Colors.red, size: 28),
-                SizedBox(width: 8),
-                Text(
-                  'Registration Failed',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
-            content: Text(message, style: const TextStyle(color: Colors.white)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFB8FF00),
-                  foregroundColor: Colors.black,
-                ),
-                child: const Text(
-                  'OK',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _proceedToPayment(RegistrationResponse registrationResponse) async {
-    final shouldProceed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: const Color(0xFF2A2A2A),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text(
-              'Payment Integration',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Payment integration would go here.',
-                  style: TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Registration ID: ${registrationResponse.registrationId}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                Text(
-                  'Amount: \$${registrationResponse.pricing.finalPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFB8FF00),
-                  foregroundColor: Colors.black,
-                ),
-                child: const Text(
-                  'Simulate Payment',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-    );
-
-    if (shouldProceed == true && mounted) {
-      Navigator.of(context).pop();
-      Navigator.of(context).pop();
-
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder:
-              (context) => TicketViewerScreen(
-                registrationId: registrationResponse.registrationId,
-                confirmationNumber: registrationResponse.confirmationNumber,
-              ),
-        ),
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment simulated successfully!'),
-          backgroundColor: Color(0xFFB8FF00),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
 }

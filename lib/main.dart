@@ -14,8 +14,14 @@ import 'package:provider/provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/profile_provider.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // TEMPORARILY COMMENT OUT THESE 2 LINES
+  Stripe.publishableKey =
+      'pk_test_51RTPwXR23CAa1CnAjXPthRwCOBBkwQfj0QDU30u8jhkygtaqDuDK83LxdQYNJEV9l9ypByvHQVYQ7f7enSmqdwas00HiFBD0lQ';
+  await Future.delayed(const Duration(milliseconds: 100));
   runApp(
     MultiProvider(
       providers: [

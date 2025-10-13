@@ -1,21 +1,28 @@
-// lib/services/event_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event_model.dart';
+import '../models/user_registration_model.dart';
 
 class EventService {
-  // Replace with your actual backend URL
   static const String baseUrl = 'http://192.168.100.16:3000/api';
 
-  // You might want to get this from your existing auth_service
-  String? get authToken => null; // Add your auth token logic here
+  // Get user token from SharedPreferences (set by AuthService)
+  Future<String?> getAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('x-auth-token');
+  }
 
-  Map<String, String> get headers => {
-    'Content-Type': 'application/json',
-    if (authToken != null) 'Authorization': 'Bearer $authToken',
-  };
+  // Proper headers function that ensures token is sent for all protected routes
+  Future<Map<String, String>> headers() async {
+    final token = await getAuthToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'x-auth-token': token,
+    };
+  }
 
-  // Get all events with optional filters
+  // Get all events with optional filters - token optional
   Future<ApiResponse<List<Event>>> getEvents({
     int page = 1,
     int limit = 20,
@@ -30,7 +37,6 @@ class EventService {
         'limit': limit.toString(),
         'upcoming': upcoming.toString(),
       };
-
       if (category != null && category != 'all') {
         queryParams['category'] = category;
       }
@@ -44,26 +50,10 @@ class EventService {
       final uri = Uri.parse(
         '$baseUrl/events',
       ).replace(queryParameters: queryParams);
-      final response = await http.get(
-        uri,
-        headers: headers,
-      ); // ✅ DECLARED EARLY
+      final response = await http.get(uri, headers: await headers());
 
       if (response.statusCode == 200) {
-        print('🌐 API Response Status: ${response.statusCode}');
-        print('📄 Raw Response Body: ${response.body}');
-
         final data = json.decode(response.body);
-        print('🔍 Parsed Data: $data');
-        print('📊 Events Array Length: ${(data['data'] as List).length}');
-
-        // Print each event
-        if (data['data'] is List && (data['data'] as List).isNotEmpty) {
-          for (int i = 0; i < (data['data'] as List).length; i++) {
-            print('Event $i: ${(data['data'] as List)[i]}');
-          }
-        }
-
         if (data['success'] == true) {
           final List<Event> events =
               (data['data'] as List)
@@ -89,32 +79,18 @@ class EventService {
     }
   }
 
-  // Get single event details
+  // Get single event details (token optional)
   Future<ApiResponse<Event>> getEventById(String eventId) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/events/$eventId'),
-        headers: headers,
+        headers: await headers(),
       );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        // ADD THIS DEBUG LOGGING
-        print('🔍 Raw API Response Data: $data');
-        print('🔍 Event Data: ${data['data']}');
-        print('🔍 Organizer Name: ${data['data']['organizerName']}');
-        print('🔍 Organizer Email: ${data['data']['organizerEmail']}');
-        print('🔍 Organizer Phone: ${data['data']['organizerPhone']}');
-
         if (data['success'] == true) {
           final event = Event.fromJson(data['data']);
-
-          // ADD THIS DEBUG LOGGING
-          print('🔍 Parsed Event Organizer Name: ${event.organizerName}');
-          print('🔍 Parsed Event Organizer Email: ${event.organizerEmail}');
-          print('🔍 Parsed Event Organizer Phone: ${event.organizerPhone}');
-
           return ApiResponse.success(data: event);
         } else {
           return ApiResponse.error(data['message'] ?? 'Event not found');
@@ -130,7 +106,7 @@ class EventService {
     }
   }
 
-  // Register for event
+  // Register for event - NOW sends token!
   Future<ApiResponse<RegistrationResponse>> registerForEvent({
     required String eventId,
     required RegistrationData registrationData,
@@ -138,7 +114,7 @@ class EventService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/events/$eventId/register'),
-        headers: headers,
+        headers: await headers(), // <-- token always sent if present!
         body: json.encode(registrationData.toJson()),
       );
 
@@ -156,6 +132,8 @@ class EventService {
         return ApiResponse.error(
           data['message'] ?? 'Invalid registration data',
         );
+      } else if (response.statusCode == 401) {
+        return ApiResponse.error('Unauthorized. Please sign in again.');
       } else {
         return ApiResponse.error('Server error: ${response.statusCode}');
       }
@@ -174,7 +152,7 @@ class EventService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/discounts/validate'),
-        headers: headers,
+        headers: await headers(),
         body: json.encode({
           'code': code,
           'eventId': eventId,
@@ -203,17 +181,15 @@ class EventService {
     }
   }
 
-  // Add this to event_service.dart
-
   Future<String> getTicketHtml(String registrationId) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/tickets/$registrationId'),
-        headers: headers,
+        headers: await headers(),
       );
 
       if (response.statusCode == 200) {
-        return response.body; // Returns HTML
+        return response.body;
       } else {
         throw Exception('Failed to load ticket');
       }
@@ -226,7 +202,7 @@ class EventService {
     return '$baseUrl/tickets/$registrationId/download';
   }
 
-  // Mark registration as paid (after payment processing)
+  // Mark registration as paid - sends token
   Future<ApiResponse<RegistrationResponse>> markRegistrationAsPaid({
     required String registrationId,
     required double paidAmount,
@@ -236,7 +212,7 @@ class EventService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/events/registrations/$registrationId/payment'),
-        headers: headers,
+        headers: await headers(),
         body: json.encode({
           'paidAmount': paidAmount,
           'paymentMethod': paymentMethod,
@@ -261,6 +237,67 @@ class EventService {
         return ApiResponse.error(data['message'] ?? 'Payment failed');
       }
     } catch (e) {
+      return ApiResponse.error('Network error: $e');
+    }
+  }
+
+  // Get user's registrations - token always sent
+  Future<ApiResponse<List<UserRegistration>>> getUserRegistrations() async {
+    try {
+      print('🎫 Fetching user registrations...');
+      final response = await http.get(
+        Uri.parse('$baseUrl/events/my-registrations'),
+        headers: await headers(),
+      );
+
+      print('📊 Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['success'] == true && data['data'] != null) {
+          final List<UserRegistration> registrations =
+              (data['data'] as List)
+                  .map((json) => UserRegistration.fromJson(json))
+                  .toList();
+
+          print('✅ Loaded ${registrations.length} registrations');
+
+          return ApiResponse.success(data: registrations);
+        }
+      }
+
+      return ApiResponse.error('Failed to load registrations');
+    } catch (e) {
+      print('❌ Error fetching registrations: $e');
+      return ApiResponse.error('Network error: $e');
+    }
+  }
+
+  // Get single registration details - token sent
+  Future<ApiResponse<UserRegistration>> getRegistrationById(
+    String registrationId,
+  ) async {
+    try {
+      print('🎫 Fetching registration: $registrationId');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/events/registrations/$registrationId'),
+        headers: await headers(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['success'] == true && data['data'] != null) {
+          final registration = UserRegistration.fromJson(data['data']);
+          return ApiResponse.success(data: registration);
+        }
+      }
+
+      return ApiResponse.error('Registration not found');
+    } catch (e) {
+      print('❌ Error fetching registration: $e');
       return ApiResponse.error('Network error: $e');
     }
   }

@@ -1,6 +1,7 @@
 // lib/pages/Events/events_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:the_factory/pages/Events/my_registrations_screen.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/events/event_card.dart';
 import 'event_details_screen.dart';
@@ -62,7 +63,59 @@ class _EventsScreenState extends State<EventsScreen> {
             letterSpacing: 0.5,
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFB8FF00),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MyRegistrationsScreen(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(22),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(
+                          Icons.confirmation_number_outlined,
+                          color: Colors.black,
+                          size: 18,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Registrations',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12.5,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
+
       body: Consumer<EventProvider>(
         builder: (context, eventProvider, child) {
           return CustomScrollView(
@@ -74,6 +127,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   padding: const EdgeInsets.all(16),
                   color: const Color(0xFF1A1A1A),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Search Bar
                       Container(

@@ -185,27 +185,30 @@ class EventProvider with ChangeNotifier {
     _clearError();
 
     try {
-      // First check if event already exists in loaded events
-      final existingEvent = _events.firstWhere((event) => event.id == eventId);
-
-      if (existingEvent != null) {
-        print('✅ Found event in cache: ${existingEvent.title}');
-        _selectedEvent = existingEvent;
-        _setLoading(false);
-        return;
-      }
-
-      // If not found locally, fetch from API
-      print('🌐 Fetching event details from API...');
+      // ALWAYS fetch fresh data from API for event details
+      // This ensures we get the latest isRegistrationOpen and hasAvailableSpots values
+      print('🌐 Fetching fresh event details from API...');
       final response = await _eventService.getEventById(eventId);
 
       if (response.success && response.data != null) {
-        print('✅ Successfully loaded event details: ${response.data!.title}');
+        print('✅ Successfully loaded event details');
+        print('   Title: ${response.data!.title}');
+        print('   Is Registration Open: ${response.data!.isRegistrationOpen}');
+        print('   Has Available Spots: ${response.data!.hasAvailableSpots}');
+        print(
+          '   Available Tickets: ${response.data!.availableTicketTypes.length}',
+        );
+
         _selectedEvent = response.data;
 
-        // Also add to events list if not already there
-        if (!_events.any((event) => event.id == eventId)) {
+        // Update the event in the list if it exists, or add it
+        final index = _events.indexWhere((event) => event.id == eventId);
+        if (index != -1) {
+          _events[index] = response.data!;
+          print('   Updated event in cache');
+        } else {
           _events.add(response.data!);
+          print('   Added event to cache');
         }
       } else {
         print('❌ Failed to load event details: ${response.error}');
