@@ -44,7 +44,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
   bool _isSubmitting = false;
 
   // CHANGE 1: Use a constant for base URL that matches PaymentService
-  static const String baseUrl = 'http://192.168.100.16:3000/api';
+  static const String baseUrl = 'https://the-factory-server.onrender.com/api';
 
   @override
   void dispose() {

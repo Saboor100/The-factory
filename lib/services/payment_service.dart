@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 class PaymentService {
   // Replace with your actual backend URL
   static const String baseUrl =
-      'http://192.168.100.16:3000/api'; // Android Emulator
+      'https://the-factory-server.onrender.com/api'; // Android Emulator
   // static const String baseUrl = 'http://localhost:3000/api'; // iOS Simulator
   // static const String baseUrl = 'http://YOUR_IP:3000/api'; // Real Device
 

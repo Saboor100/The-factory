@@ -1,9 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'video_player_screen.dart';
 import 'package:the_factory/services/video_api_service.dart';
+import 'package:the_factory/services/payment_service.dart';
 import 'package:provider/provider.dart';
 import 'package:the_factory/providers/user_provider.dart';
+import 'dart:convert';
 
 class VideoDetailScreen extends StatefulWidget {
   final String videoId;
@@ -24,7 +27,10 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
   String errorMessage = '';
   bool isLiked = false;
   bool isDisliked = false;
-  bool isPurchased = false;
+  bool isProcessingPayment = false;
+  bool isAuthenticated = false;
+  String? userId;
+  String? authToken;
   int likesCount = 0;
   int dislikesCount = 0;
   bool isDescriptionExpanded = false;
@@ -36,6 +42,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
   void initState() {
     super.initState();
     video = widget.videoData;
+    _checkAuthentication();
     if (video != null) {
       _initializeVideoState();
     }
@@ -50,20 +57,67 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _checkAuthentication() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final keys = prefs.getKeys();
+      print('🔍 ALL SharedPreferences keys: $keys');
+
+      final token = prefs.getString('x-auth-token');
+      final uid = prefs.getString('userId');
+      final userData = prefs.getString('user-data');
+
+      print('🔐 Auth Debug Info:');
+      print('   Token exists: ${token != null}');
+      print('   Token value: ${token?.substring(0, 20) ?? 'null'}...');
+      print('   UserId exists: ${uid != null}');
+      print('   UserId value: $uid');
+      print('   UserData exists: ${userData != null}');
+
+      String? extractedUserId = uid;
+      if (extractedUserId == null && userData != null) {
+        try {
+          final userJson = json.decode(userData);
+          extractedUserId = userJson['_id'] ?? userJson['id'];
+          if (extractedUserId != null) {
+            await prefs.setString('userId', extractedUserId);
+            print('   ✅ Extracted userId from user-data: $extractedUserId');
+          }
+        } catch (e) {
+          print('   ❌ Failed to extract userId: $e');
+        }
+      }
+
+      setState(() {
+        isAuthenticated = token != null && extractedUserId != null;
+        authToken = token;
+        userId = extractedUserId;
+      });
+
+      print(
+        '🔐 Final Auth Status: ${isAuthenticated ? "Logged In" : "Not Logged In"}',
+      );
+    } catch (e) {
+      print('❌ Auth check error: $e');
+      setState(() {
+        isAuthenticated = false;
+      });
+    }
+  }
+
   void _initializeVideoState() {
     if (video != null) {
       likesCount = video!['likes'] ?? 0;
       dislikesCount = video!['dislikes'] ?? 0;
 
-      // Get current user ID from provider
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final currentUserId = userProvider.user.id;
 
-      print('Initializing video state for user: $currentUserId'); // Debug
-      print('Video likes data: ${video!['likedBy']}'); // Debug
-      print('Video dislikes data: ${video!['dislikedBy']}'); // Debug
+      print('Initializing video state for user: $currentUserId');
+      print('Video likes data: ${video!['likedBy']}');
+      print('Video dislikes data: ${video!['dislikedBy']}');
 
-      // Check if current user has liked/disliked this video
       if (video!['likedBy'] != null) {
         if (video!['likedBy'] is List) {
           isLiked = (video!['likedBy'] as List).any(
@@ -80,7 +134,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
         }
       }
 
-      print('Is liked: $isLiked, Is disliked: $isDisliked'); // Debug
+      print('Is liked: $isLiked, Is disliked: $isDisliked');
     }
   }
 
@@ -146,7 +200,11 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     final commentText = _commentController.text.trim();
     if (commentText.isEmpty) return;
 
-    // Prevent multiple submissions
+    if (!isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
+
     if (isLoadingComments) return;
 
     setState(() {
@@ -246,6 +304,11 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
   }
 
   Future<void> _likeVideo() async {
+    if (!isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
+
     try {
       final response = await VideoApiService.likeVideo(widget.videoId);
       if (response['success']) {
@@ -269,6 +332,11 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
   }
 
   Future<void> _dislikeVideo() async {
+    if (!isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
+
     try {
       final response = await VideoApiService.dislikeVideo(widget.videoId);
       if (response['success']) {
@@ -319,105 +387,299 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     );
   }
 
-  void _showPurchaseDialog() {
+  void _showLoginRequiredDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Purchase Video',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 20,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                video!['title'],
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFB8FF00).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.login,
+                    color: Color(0xFFB8FF00),
+                    size: 24,
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Price',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Login Required',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
                     ),
-                    Text(
-                      '\$${video!['price']?.toStringAsFixed(2) ?? '0.00'}',
-                      style: const TextStyle(
-                        color: Color(0xFFB8FF00),
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'You need to be logged in to access this feature.',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white54),
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Once purchased, you\'ll have lifetime access to this video.',
-                style: TextStyle(color: Colors.white60, fontSize: 14),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/login');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB8FF00),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Login',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white54),
-              ),
+    );
+  }
+
+  void _showPaymentDialog() {
+    final double price = (video!['price'] ?? 0).toDouble();
+    final String title = video!['title'] ?? 'Video';
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  isPurchased = true;
-                });
-                _showSuccessSnackBar('Video purchased successfully!');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB8FF00),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD700).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium,
+                    color: Color(0xFFFFD700),
+                    size: 24,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Premium Video',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Purchase',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
+              ],
             ),
-          ],
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Purchase "$title" to watch',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFFFD700).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Price:',
+                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                      ),
+                      Text(
+                        '\$${price.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Color(0xFFFFD700),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  '✓ Lifetime access\n✓ Watch anytime\n✓ HD quality',
+                  style: TextStyle(
+                    color: Color(0xFFB8FF00),
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white54),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _processVideoPayment(price);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB8FF00),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Purchase Now',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _processVideoPayment(double amount) async {
+    if (!isAuthenticated || authToken == null || userId == null) {
+      _showErrorSnackBar('Please login to purchase videos');
+      return;
+    }
+
+    setState(() {
+      isProcessingPayment = true;
+    });
+
+    try {
+      print('💳 Starting payment process...');
+      print('   Video ID: ${widget.videoId}');
+      print('   Amount: \$${amount.toStringAsFixed(2)}');
+      print('   User ID: $userId');
+
+      final bool success = await PaymentService.processVideoPayment(
+        videoId: widget.videoId,
+        amount: amount,
+        videoTitle: video!['title'] ?? 'Video',
+        userId: userId!,
+        token: authToken!,
+      );
+
+      setState(() {
+        isProcessingPayment = false;
+      });
+
+      if (success) {
+        print('✅ Payment successful!');
+        _showSuccessDialog();
+        await _loadVideoDetails();
+      } else {
+        print('❌ Payment failed');
+        _showErrorSnackBar(
+          'Payment was cancelled or failed. Please try again.',
         );
-      },
+      }
+    } catch (e) {
+      print('❌ Payment error: $e');
+      setState(() {
+        isProcessingPayment = false;
+      });
+      _showErrorSnackBar('Payment error: ${e.toString()}');
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Color(0xFFB8FF00), size: 32),
+                SizedBox(width: 12),
+                Text(
+                  'Purchase Successful!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'You now have lifetime access to this video.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _watchVideo();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB8FF00),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text(
+                  'Watch Now',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
     );
   }
 
@@ -468,28 +730,20 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
         comment['user']?['name'] ??
         'Anonymous';
 
-    // Try multiple possible avatar URL paths
     final String userAvatar =
         comment['user']?['profile']?['avatar']?['url'] ??
         comment['user']?['avatar']?['url'] ??
         comment['user']?['profilePicture'] ??
         '';
 
-    print('Comment user avatar: $userAvatar'); // Debug print
-
     final String commentText = comment['comment'] ?? '';
     final String timeAgo = _formatDate(comment['createdAt']);
     final String commentId = comment['_id'] ?? '';
     final String commentUserId = comment['user']?['_id'] ?? '';
 
-    // Get current user ID from provider
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final String currentUserId = userProvider.user.id;
     final bool isOwnComment = commentUserId == currentUserId;
-
-    print(
-      'Is own comment: $isOwnComment (current: $currentUserId, comment: $commentUserId)',
-    ); // Debug
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -518,7 +772,6 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                               color: Color(0xFFB8FF00),
                             ),
                         errorWidget: (context, url, error) {
-                          print('Avatar load error: $error'); // Debug
                           return const Icon(
                             Icons.person,
                             color: Colors.white54,
@@ -754,13 +1007,35 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
   void _watchVideo() {
     if (video == null) return;
 
-    final bool isFree = !(video!['isPremium'] ?? false);
+    final bool isPremium = video!['isPremium'] ?? false;
 
-    if (!isFree && !isPurchased) {
-      _showPurchaseDialog();
+    // Check authentication first
+    if (!isAuthenticated && isPremium) {
+      _showLoginRequiredDialog();
       return;
     }
 
+    // Check access for premium videos
+    if (isPremium) {
+      final userAccess = video!['userAccess'];
+
+      if (userAccess != null) {
+        final bool hasAccess = userAccess['hasAccess'] ?? false;
+        final bool requiresPayment = userAccess['requiresPayment'] ?? false;
+
+        print('📊 Video Access Status:');
+        print('   isPremium: $isPremium');
+        print('   hasAccess: $hasAccess');
+        print('   requiresPayment: $requiresPayment');
+
+        if (!hasAccess && requiresPayment) {
+          _showPaymentDialog();
+          return;
+        }
+      }
+    }
+
+    // User has access or video is free - play video
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -848,7 +1123,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
 
     if (video == null) return const SizedBox();
 
-    final bool isFree = !(video!['isPremium'] ?? false);
+    final bool isPremium = video!['isPremium'] ?? false;
     final String thumbnailUrl = video!['thumbnailUrl'] ?? '';
 
     return Scaffold(
@@ -906,7 +1181,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                   // Play button
                   Center(
                     child: GestureDetector(
-                      onTap: _watchVideo,
+                      onTap: isProcessingPayment ? null : _watchVideo,
                       child: Container(
                         width: 70,
                         height: 70,
@@ -914,17 +1189,26 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                           color: Colors.white.withOpacity(0.95),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.black,
-                          size: 40,
-                        ),
+                        child:
+                            isProcessingPayment
+                                ? const Padding(
+                                  padding: EdgeInsets.all(15),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.black,
+                                    strokeWidth: 3,
+                                  ),
+                                )
+                                : const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.black,
+                                  size: 40,
+                                ),
                       ),
                     ),
                   ),
 
                   // Premium badge
-                  if (!isFree)
+                  if (isPremium)
                     Positioned(
                       top: 60,
                       right: 16,
@@ -947,7 +1231,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '\$${video!['price']?.toStringAsFixed(2) ?? '0.00'}',
+                              '${(video!['price'] ?? 0).toDouble().toStringAsFixed(2)}',
                               style: const TextStyle(
                                 color: Colors.black,
                                 fontWeight: FontWeight.w700,
@@ -1161,7 +1445,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                   const SizedBox(height: 16),
 
                   // Comments List
-                  if (isLoadingComments)
+                  if (isLoadingComments && comments.isEmpty)
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.all(20),

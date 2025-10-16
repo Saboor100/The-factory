@@ -5,7 +5,7 @@ import '../models/event_model.dart';
 import '../models/user_registration_model.dart';
 
 class EventService {
-  static const String baseUrl = 'http://192.168.100.16:3000/api';
+  static const String baseUrl = 'https://the-factory-server.onrender.com/api';
 
   // Get user token from SharedPreferences (set by AuthService)
   Future<String?> getAuthToken() async {
